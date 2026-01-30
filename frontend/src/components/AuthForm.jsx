@@ -4,63 +4,36 @@ import { Users, Heart } from "lucide-react";
 import "../styles/auth.css";
 
 const sriLankaCities = [
-  "Colombo",
-  "Sri Jayawardenepura Kotte",
-  "Dehiwala-Mount Lavinia",
-  "Moratuwa",
-  "Negombo",
-  "Kandy",
-  "Galle",
-  "Jaffna",
-  "Trincomalee",
-  "Batticaloa",
-  "Kalmunai",
-  "Vavuniya",
-  "Anuradhapura",
-  "Matara",
-  "Ratnapura",
-  "Kurunegala",
-  "Puttalam",
-  "Kalutara",
-  "Nuwara Eliya",
-  "Dambulla",
-  "Polonnaruwa",
-  "Badulla",
-  "Hambantota",
-  "Matale",
+  "Colombo","Sri Jayawardenepura Kotte","Dehiwala-Mount Lavinia","Moratuwa",
+  "Negombo","Kandy","Galle","Jaffna","Trincomalee","Batticaloa","Kalmunai",
+  "Vavuniya","Anuradhapura","Matara","Ratnapura","Kurunegala","Puttalam",
+  "Kalutara","Nuwara Eliya","Dambulla","Polonnaruwa","Badulla","Hambantota",
+  "Matale"
 ];
 
-function AuthForm({ type = "signup", defaultRole = "elderly" }) {
+function AuthForm({ type = "signin", defaultRole = "elderly", onSuccess }) {
   const navigate = useNavigate();
+  const isSignUp = type === "signup";
 
   const [activeTab, setActiveTab] = useState(defaultRole);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [location, setLocation] = useState("");
+  const [locationValue, setLocationValue] = useState("");
   const [error, setError] = useState("");
-
-  const isSignUp = type === "signup";
+  const [success, setSuccess] = useState("");
 
   const handleTabClick = (role) => {
-    setActiveTab(role);
     setError("");
-
-    navigate(
-      isSignUp
-        ? role === "elderly"
-          ? "/elderly/signup"
-          : "/caregiver/signup"
-        : role === "elderly"
-        ? "/elderly/signin"
-        : "/caregiver/signin"
-    );
+    setSuccess("");
+    setActiveTab(role);
+    navigate(isSignUp ? `/${role}/signup` : `/${role}/signin`);
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    setError("");
 
-    // Basic validation
     if (!email.endsWith("@gmail.com")) {
       setError("Email must be a valid @gmail.com address");
       return;
@@ -71,84 +44,75 @@ function AuthForm({ type = "signup", defaultRole = "elderly" }) {
       return;
     }
 
-    if (isSignUp && !location) {
+    if (isSignUp && !locationValue) {
       setError("Please select your location");
       return;
     }
 
-    // -------------------
-    // SIGN-UP FLOW
-    // -------------------
+    const userData = {
+      name: name || email.split("@")[0],
+      email,
+      password,
+      location: locationValue || "Colombo",
+      token: "dummy-token",
+    };
+
+    /* ---------------- SIGN UP ---------------- */
     if (isSignUp) {
-      const userData = { name, email, password, location, role: activeTab };
-
-      // Caregiver signup → dashboard
       if (activeTab === "caregiver") {
-        const caregiverData = { ...userData, activities: [] };
-        localStorage.setItem("loggedInCaregiver", JSON.stringify(caregiverData));
+        const storedCaregivers =
+          JSON.parse(localStorage.getItem("caregivers")) || [];
 
-        // Save all caregivers
-        const caregivers = JSON.parse(localStorage.getItem("caregivers")) || [];
-        caregivers.push(caregiverData);
-        localStorage.setItem("caregivers", JSON.stringify(caregivers));
+        storedCaregivers.push({
+          ...userData,
+          activities: [],
+          languages: ["English"],
+          rate: 800,
+          experience: "1 year",
+          profilePic: null,
+        });
 
-        navigate("/caregiver/dashboard");
-        return;
+        localStorage.setItem("caregivers", JSON.stringify(storedCaregivers));
       }
 
-      // Elderly signup → find caregiver page
-      if (activeTab === "elderly") {
-        const elderlyUsers = JSON.parse(localStorage.getItem("elderlyUsers")) || [];
-        elderlyUsers.push(userData);
-        localStorage.setItem("elderlyUsers", JSON.stringify(elderlyUsers));
+      setSuccess("Account created successfully! Redirecting to Sign In...");
+      setTimeout(() => {
+        navigate(`/${activeTab}/signin`);
+      }, 1000);
 
-        // Save current logged-in elderly
-        localStorage.setItem("loggedInElderly", JSON.stringify(userData));
-
-        navigate("/elderly/find-caregiver");
-        return;
-      }
+      return;
     }
 
-    // -------------------
-    // SIGN-IN FLOW
-    // -------------------
-    if (!isSignUp) {
-      // Caregiver signin
-      if (activeTab === "caregiver") {
-        const caregivers = JSON.parse(localStorage.getItem("caregivers")) || [];
-        const match = caregivers.find(
-          (user) => user.email === email && user.password === password
-        );
-        if (match) {
-          localStorage.setItem("loggedInCaregiver", JSON.stringify(match));
-          navigate("/caregiver/dashboard");
-        } else {
-          setError("Invalid caregiver credentials");
-        }
+    /* ---------------- SIGN IN ---------------- */
+    if (activeTab === "caregiver") {
+      const storedCaregivers =
+        JSON.parse(localStorage.getItem("caregivers")) || [];
+
+      const matchedUser = storedCaregivers.find(
+        (u) => u.email === email && u.password === password
+      );
+
+      if (!matchedUser) {
+        setError("Invalid email or password");
         return;
       }
 
-      // Elderly signin
-      if (activeTab === "elderly") {
-        const elderlyUsers = JSON.parse(localStorage.getItem("elderlyUsers")) || [];
-        const match = elderlyUsers.find(
-          (user) => user.email === email && user.password === password
-        );
-        if (match) {
-          localStorage.setItem("loggedInElderly", JSON.stringify(match));
-          navigate("/elderly/find-caregiver");
-        } else {
-          setError("Invalid elderly credentials");
-        }
-        return;
-      }
+      if (onSuccess) onSuccess(matchedUser);
+      return;
+    }
+
+    /* ---------------- ELDERLY SIGN IN ---------------- */
+    if (onSuccess) {
+      onSuccess({
+        name: email.split("@")[0],
+        email,
+        token: "dummy-token",
+      });
     }
   };
 
   return (
     <>
-      {/* Tabs */}
       <div className="tabs">
         <div
           className={`tab ${activeTab === "elderly" ? "active" : ""}`}
@@ -165,82 +129,55 @@ function AuthForm({ type = "signup", defaultRole = "elderly" }) {
       </div>
 
       <form onSubmit={handleSubmit}>
-        {/* SIGN-UP FIELDS */}
         {isSignUp && (
           <>
             <div className="form-group">
               <label>Full Name</label>
               <input
-                placeholder="Enter your name"
+                type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                placeholder="Enter your full name"
               />
             </div>
 
-            <div className="form-group">
-              <label>Email</label>
-              <input
-                type="email"
-                placeholder="example@gmail.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-
-            {/* Location for BOTH elderly and caregiver */}
             <div className="form-group">
               <label>Location</label>
               <select
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
+                value={locationValue}
+                onChange={(e) => setLocationValue(e.target.value)}
               >
                 <option value="">Select your city</option>
-                {sriLankaCities.map((city) => (
-                  <option key={city} value={city}>
-                    {city}
-                  </option>
+                {sriLankaCities.map((c) => (
+                  <option key={c} value={c}>{c}</option>
                 ))}
               </select>
             </div>
-
-            <div className="form-group">
-              <label>Password</label>
-              <input
-                type="password"
-                placeholder="Minimum 8 characters"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
           </>
         )}
 
-        {/* SIGN-IN FIELDS */}
-        {!isSignUp && (
-          <>
-            <div className="form-group">
-              <label>Email</label>
-              <input
-                type="email"
-                placeholder="example@gmail.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
+        <div className="form-group">
+          <label>Email</label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="example@gmail.com"
+          />
+        </div>
 
-            <div className="form-group">
-              <label>Password</label>
-              <input
-                type="password"
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-          </>
-        )}
+        <div className="form-group">
+          <label>Password</label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Minimum 8 characters"
+          />
+        </div>
 
         {error && <p className="error-text">{error}</p>}
+        {success && <p className="success-text">{success}</p>}
 
         <button className="auth-button" type="submit">
           {isSignUp ? "Create Account" : "Sign In"}
@@ -250,15 +187,9 @@ function AuthForm({ type = "signup", defaultRole = "elderly" }) {
       <div
         className="switch-link"
         onClick={() =>
-          navigate(
-            isSignUp
-              ? activeTab === "elderly"
-                ? "/elderly/signin"
-                : "/caregiver/signin"
-              : activeTab === "elderly"
-              ? "/elderly/signup"
-              : "/caregiver/signup"
-          )
+          navigate(isSignUp
+            ? `/${activeTab}/signin`
+            : `/${activeTab}/signup`)
         }
       >
         {isSignUp

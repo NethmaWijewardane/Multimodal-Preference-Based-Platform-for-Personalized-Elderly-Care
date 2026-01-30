@@ -51,9 +51,9 @@ function FindCaregiver() {
   const [maxRate, setMaxRate] = useState(2000);
 
   useEffect(() => {
-    // ✅ Get current logged-in elderly
+    // Get elderly user name
     const elderlyUser =
-      JSON.parse(localStorage.getItem("loggedInElderly")) || {};
+      JSON.parse(localStorage.getItem("elderlyUser")) || {};
     setElderlyName(elderlyUser.name || "Elderly User");
 
     // Get caregivers
@@ -72,7 +72,6 @@ function FindCaregiver() {
     setFilteredCaregivers(enrichedCaregivers);
   }, []);
 
-  // Apply filters
   useEffect(() => {
     let result = caregivers;
 
@@ -89,22 +88,32 @@ function FindCaregiver() {
     }
 
     if (locationFilters.length > 0) {
-      result = result.filter((cg) => locationFilters.includes(cg.location));
+      result = result.filter((cg) =>
+        locationFilters.includes(cg.location)
+      );
     }
 
     result = result.filter((cg) => cg.rate <= maxRate);
 
     setFilteredCaregivers(result);
-  }, [caregivers, languageFilters, activityFilters, locationFilters, maxRate]);
+  }, [
+    caregivers,
+    languageFilters,
+    activityFilters,
+    locationFilters,
+    maxRate,
+  ]);
 
   const toggleFilter = (value, setFn) => {
     setFn((prev) =>
-      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]
+      prev.includes(value)
+        ? prev.filter((v) => v !== value)
+        : [...prev, value]
     );
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("loggedInElderly");
+    localStorage.removeItem("elderlyUser");
     navigate("/elderly/signin");
   };
 
@@ -158,30 +167,40 @@ function FindCaregiver() {
             <div key={lang}>
               <input
                 type="checkbox"
-                onChange={() => toggleFilter(lang, setLanguageFilters)}
+                onChange={() =>
+                  toggleFilter(lang, setLanguageFilters)
+                }
               />{" "}
               {lang}
             </div>
           ))}
 
-          <p style={{ marginTop: "16px" }}><strong>Activities</strong></p>
+          <p style={{ marginTop: "16px" }}>
+            <strong>Activities</strong>
+          </p>
           {activitiesList.map((activity) => (
             <div key={activity}>
               <input
                 type="checkbox"
-                onChange={() => toggleFilter(activity, setActivityFilters)}
+                onChange={() =>
+                  toggleFilter(activity, setActivityFilters)
+                }
               />{" "}
               {activity}
             </div>
           ))}
 
-          <p style={{ marginTop: "16px" }}><strong>Locations</strong></p>
+          <p style={{ marginTop: "16px" }}>
+            <strong>Locations</strong>
+          </p>
           <div style={{ maxHeight: "160px", overflowY: "auto" }}>
             {sriLankaCities.map((city) => (
               <div key={city}>
                 <input
                   type="checkbox"
-                  onChange={() => toggleFilter(city, setLocationFilters)}
+                  onChange={() =>
+                    toggleFilter(city, setLocationFilters)
+                  }
                 />{" "}
                 {city}
               </div>
@@ -224,7 +243,9 @@ function FindCaregiver() {
               <p>💰 Rs. {cg.rate}/hr</p>
 
               <div style={{ marginTop: "12px" }}>
-                <button style={{ marginRight: "12px" }}>View Profile</button>
+                <button style={{ marginRight: "12px" }}>
+                  View Profile
+                </button>
                 <button>Send Request</button>
               </div>
             </div>

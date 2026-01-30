@@ -1,42 +1,17 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../../styles/dashboard.css";
 
 const activitiesList = [
-  "Walking",
-  "Cooking",
-  "Crafts",
-  "Reading",
-  "Gardening",
-  "Games",
-  "TV",
+  "Walking","Cooking","Crafts","Reading","Gardening","Games","TV"
 ];
 
 const sriLankaCities = [
-  "Colombo",
-  "Sri Jayawardenepura Kotte",
-  "Dehiwala-Mount Lavinia",
-  "Moratuwa",
-  "Negombo",
-  "Kandy",
-  "Galle",
-  "Jaffna",
-  "Trincomalee",
-  "Batticaloa",
-  "Kalmunai",
-  "Vavuniya",
-  "Anuradhapura",
-  "Matara",
-  "Ratnapura",
-  "Kurunegala",
-  "Puttalam",
-  "Kalutara",
-  "Nuwara Eliya",
-  "Dambulla",
-  "Polonnaruwa",
-  "Badulla",
-  "Hambantota",
-  "Matale",
+  "Colombo","Sri Jayawardenepura Kotte","Dehiwala-Mount Lavinia","Moratuwa",
+  "Negombo","Kandy","Galle","Jaffna","Trincomalee","Batticaloa","Kalmunai",
+  "Vavuniya","Anuradhapura","Matara","Ratnapura","Kurunegala","Puttalam",
+  "Kalutara","Nuwara Eliya","Dambulla","Polonnaruwa","Badulla","Hambantota",
+  "Matale"
 ];
 
 function CaregiverDashboard() {
@@ -45,7 +20,6 @@ function CaregiverDashboard() {
   const [activeTab, setActiveTab] = useState("profile");
   const [editMode, setEditMode] = useState(false);
 
-  // Editable fields
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [location, setLocation] = useState("");
@@ -54,10 +28,10 @@ function CaregiverDashboard() {
 
   useEffect(() => {
     const data = JSON.parse(localStorage.getItem("loggedInCaregiver"));
-    if (!data) navigate("/caregiver/signin");
 
-    setCaregiver(data);
-    if (data) {
+    if (!data) navigate("/caregiver/signin");
+    else {
+      setCaregiver(data);
       setName(data.name || "");
       setEmail(data.email || "");
       setLocation(data.location || "");
@@ -88,24 +62,49 @@ function CaregiverDashboard() {
       activities: selectedActivities,
       profilePic,
     };
-    localStorage.setItem("loggedInCaregiver", JSON.stringify(updatedCaregiver));
+
+    localStorage.setItem(
+      "loggedInCaregiver",
+      JSON.stringify(updatedCaregiver)
+    );
+
     setCaregiver(updatedCaregiver);
     setEditMode(false);
+  };
+
+  // Delete profile picture
+  const handleDeleteProfilePic = () => {
+    setProfilePic(null);
+
+    const updatedCaregiver = {
+      ...caregiver,
+      profilePic: null,
+    };
+
+    localStorage.setItem(
+      "loggedInCaregiver",
+      JSON.stringify(updatedCaregiver)
+    );
+
+    setCaregiver(updatedCaregiver);
+  };
+
+  // ✅ Delete entire profile
+  const handleDeleteProfile = () => {
+    if (window.confirm("Are you sure you want to delete your profile? This cannot be undone.")) {
+      localStorage.removeItem("loggedInCaregiver");
+      navigate("/caregiver/signin");
+    }
   };
 
   if (!caregiver) return null;
 
   return (
     <div className="dashboard-container">
-      {/* HEADER */}
       <div className="dashboard-header">
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           {profilePic && (
-            <img
-              src={profilePic}
-              alt="Profile"
-              className="profile-image"
-            />
+            <img src={profilePic} alt="Profile" className="profile-image" />
           )}
           <div>
             <h2>Caregiver Dashboard</h2>
@@ -119,7 +118,6 @@ function CaregiverDashboard() {
         </button>
       </div>
 
-      {/* TABS */}
       <div className="dashboard-tabs">
         <button
           className={activeTab === "profile" ? "active" : ""}
@@ -135,7 +133,6 @@ function CaregiverDashboard() {
         </button>
       </div>
 
-      {/* PROFILE TAB */}
       {activeTab === "profile" && (
         <div className="profile-card">
           {!editMode ? (
@@ -144,11 +141,24 @@ function CaregiverDashboard() {
               <p><strong>Name:</strong> {caregiver.name}</p>
               <p><strong>Email:</strong> {caregiver.email}</p>
               <p><strong>Location:</strong> {caregiver.location}</p>
-              <p><strong>Activities:</strong> {caregiver.activities.join(", ")}</p>
-
-              <button className="edit-btn" onClick={() => setEditMode(true)}>
-                Edit Profile
-              </button>
+              <p>
+                <strong>Activities:</strong>{" "}
+                {caregiver.activities && caregiver.activities.length > 0
+                  ? caregiver.activities.join(", ")
+                  : "Not specified"}
+              </p>
+              <div style={{ display: "flex", gap: "10px" }}>
+                <button className="edit-btn" onClick={() => setEditMode(true)}>
+                  Edit Profile
+                </button>
+                <button
+                  className="delete-btn"
+                  onClick={handleDeleteProfile}
+                  style={{ background: "#e74c3c", color: "#fff" }}
+                >
+                  Delete Profile
+                </button>
+              </div>
             </>
           ) : (
             <>
@@ -165,11 +175,20 @@ function CaregiverDashboard() {
                   }}
                 />
                 {profilePic && (
-                  <img
-                    src={profilePic}
-                    alt="Preview"
-                    className="profile-image-preview"
-                  />
+                  <>
+                    <img
+                      src={profilePic}
+                      alt="Preview"
+                      className="profile-image-preview"
+                    />
+                    <button
+                      type="button"
+                      className="delete-btn"
+                      onClick={handleDeleteProfilePic}
+                    >
+                      Delete Picture
+                    </button>
+                  </>
                 )}
               </div>
 
@@ -185,12 +204,13 @@ function CaregiverDashboard() {
 
               <div className="form-group">
                 <label>Location</label>
-                <select value={location} onChange={(e) => setLocation(e.target.value)}>
+                <select
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                >
                   <option value="">Select your city</option>
-                  {sriLankaCities.map((city) => (
-                    <option key={city} value={city}>
-                      {city}
-                    </option>
+                  {sriLankaCities.map((c) => (
+                    <option key={c} value={c}>{c}</option>
                   ))}
                 </select>
               </div>
@@ -198,14 +218,14 @@ function CaregiverDashboard() {
               <div className="filter-section">
                 <label>Activities</label>
                 <div className="checkbox-grid">
-                  {activitiesList.map((activity) => (
-                    <label key={activity}>
+                  {activitiesList.map((a) => (
+                    <label key={a}>
                       <input
                         type="checkbox"
-                        checked={selectedActivities.includes(activity)}
-                        onChange={() => toggleActivity(activity)}
+                        checked={selectedActivities.includes(a)}
+                        onChange={() => toggleActivity(a)}
                       />
-                      {activity}
+                      {a}
                     </label>
                   ))}
                 </div>
@@ -222,7 +242,6 @@ function CaregiverDashboard() {
         </div>
       )}
 
-      {/* REQUESTS TAB */}
       {activeTab === "requests" && (
         <div className="profile-card">
           <h3>Requests</h3>
