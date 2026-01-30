@@ -22,13 +22,13 @@ function CaregiverDashboard() {
   const [location, setLocation] = useState("");
   const [selectedActivities, setSelectedActivities] = useState([]);
   const [profilePic, setProfilePic] = useState(null);
-  const [experience, setExperience] = useState(3); // NEW: experience in years
+  const [experience, setExperience] = useState(3);
+  const [feedbacks, setFeedbacks] = useState([]);
 
   useEffect(() => {
     const data = JSON.parse(localStorage.getItem("loggedInCaregiver"));
     if (!data) navigate("/caregiver/signin");
     else {
-      // Load requests from localStorage
       const allRequests = JSON.parse(localStorage.getItem("caregiverRequests")) || {};
       const caregiverRequests = allRequests[data.email] || [];
 
@@ -42,7 +42,7 @@ function CaregiverDashboard() {
       const caregiverWithRequests = { 
         ...data, 
         requests: formattedRequests,
-        experience: data.experience || 3 // default to 3 years if missing
+        experience: data.experience || 3
       };
 
       setCaregiver(caregiverWithRequests);
@@ -52,6 +52,9 @@ function CaregiverDashboard() {
       setSelectedActivities(caregiverWithRequests.activities || []);
       setProfilePic(caregiverWithRequests.profilePic || null);
       setExperience(caregiverWithRequests.experience || 3);
+
+      const allFeedbacks = JSON.parse(localStorage.getItem("caregiverFeedbacks")) || {};
+      setFeedbacks(allFeedbacks[data.email] || []);
     }
   }, [navigate]);
 
@@ -120,6 +123,10 @@ function CaregiverDashboard() {
     localStorage.setItem("caregiverRequests", JSON.stringify(allRequests));
   };
 
+  const avgRating = feedbacks.length
+    ? (feedbacks.reduce((sum, f) => sum + f.rating, 0) / feedbacks.length).toFixed(1)
+    : null;
+
   if (!caregiver) return null;
 
   return (
@@ -150,7 +157,23 @@ function CaregiverDashboard() {
               <p><strong>Location:</strong> {caregiver.location}</p>
               <p><strong>Experience:</strong> {caregiver.experience} years</p>
               <p><strong>Activities:</strong> {caregiver.activities && caregiver.activities.length ? caregiver.activities.join(", ") : "Not specified"}</p>
-              <div style={{ display: "flex", gap: "10px" }}>
+              {avgRating && <p>⭐ Average Rating: {avgRating} / 5 ({feedbacks.length} feedbacks)</p>}
+
+              {/* Feedback section with requested order */}
+              {feedbacks.length > 0 && (
+                <div style={{ marginTop: "12px" }}>
+                  <p style={{ textDecoration: "underline", margin: "0" }}>Feedbacks about the Services</p>
+                  {feedbacks.map((f, idx) => (
+                    <div key={idx} style={{ padding: "6px 0", borderBottom: "1px solid #eee" }}>
+                      <p><strong>Elderly person's name:</strong> {f.from}</p>
+                      <p><strong>Feedback:</strong> {f.feedback}</p>
+                      <p><strong>Rating:</strong> ⭐ {f.rating} / 5</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div style={{ display: "flex", gap: "10px", marginTop: "12px" }}>
                 <button className="edit-btn" onClick={() => setEditMode(true)}>Edit Profile</button>
                 <button className="delete-btn" onClick={handleDeleteProfile} style={{ background: "#e74c3c", color: "#fff" }}>Delete Profile</button>
               </div>

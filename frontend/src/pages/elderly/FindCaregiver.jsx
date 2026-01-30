@@ -54,6 +54,11 @@ function FindCaregiver() {
   const [locationFilters, setLocationFilters] = useState([]);
   const [maxRate, setMaxRate] = useState(2000);
 
+  // Feedback state
+  const [feedbackPanelOpen, setFeedbackPanelOpen] = useState(null); // email of caregiver
+  const [feedbackText, setFeedbackText] = useState("");
+  const [feedbackRating, setFeedbackRating] = useState(0);
+
   // Load caregivers and elderly info
   useEffect(() => {
     const elderlyUser = JSON.parse(localStorage.getItem("elderlyUser")) || {};
@@ -84,7 +89,6 @@ function FindCaregiver() {
     }
 
     if (experienceFilter) {
-      // Compare experience number
       result = result.filter((cg) => {
         const years = parseInt(cg.experience) || 0;
         return years === parseInt(experienceFilter);
@@ -148,7 +152,6 @@ function FindCaregiver() {
       (r) => r.email === elderlyUser.email
     );
 
-    // Allow resend if declined or no existing request
     if (!existingRequest || existingRequest.status === "declined") {
       if (existingRequest) {
         existingRequest.status = "pending";
@@ -169,7 +172,6 @@ function FindCaregiver() {
     }
   };
 
-  // FIX: Get real status directly from localStorage when viewing profile
   const getStatusForProfile = (cgEmail) => {
     const allRequests = JSON.parse(localStorage.getItem("caregiverRequests")) || {};
     const requests = allRequests[cgEmail] || [];
@@ -177,9 +179,37 @@ function FindCaregiver() {
     return myRequest ? myRequest.status : null;
   };
 
+  const handleSubmitFeedback = (cgEmail) => {
+    if (!feedbackText || feedbackRating === 0) {
+      alert("Please provide a rating and feedback");
+      return;
+    }
+
+    const allFeedbacks = JSON.parse(localStorage.getItem("caregiverFeedbacks")) || {};
+    if (!allFeedbacks[cgEmail]) allFeedbacks[cgEmail] = [];
+
+    allFeedbacks[cgEmail].push({
+      from: elderlyName,
+      email: elderlyEmail,
+      rating: feedbackRating,
+      feedback: feedbackText,
+      createdAt: new Date().toISOString(),
+    });
+
+    localStorage.setItem("caregiverFeedbacks", JSON.stringify(allFeedbacks));
+    setFeedbackPanelOpen(null);
+    setFeedbackText("");
+    setFeedbackRating(0);
+    alert("Feedback submitted successfully");
+  };
+
+  const getFeedbacks = (cgEmail) => {
+    const allFeedbacks = JSON.parse(localStorage.getItem("caregiverFeedbacks")) || {};
+    return allFeedbacks[cgEmail] || [];
+  };
+
   return (
     <div style={{ padding: "24px" }}>
-      {/* HEADER */}
       <div
         style={{
           display: "flex",
@@ -235,7 +265,6 @@ function FindCaregiver() {
             </div>
           ))}
 
-          {/* NEW Experience Filter */}
           <p style={{ marginTop: "16px" }}><strong>Experience (Years)</strong></p>
           <select
             value={experienceFilter}
@@ -295,8 +324,12 @@ function FindCaregiver() {
           <h2>{filteredCaregivers.length} Caregivers Found</h2>
 
           {filteredCaregivers.map((cg, index) => {
-            // fetch latest status when viewing profile
             const status = getStatusForProfile(cg.email);
+            const feedbacks = getFeedbacks(cg.email);
+            const avgRating = feedbacks.length
+              ? (feedbacks.reduce((sum, f) => sum + f.rating, 0) / feedbacks.length).toFixed(1)
+              : null;
+
             return (
               <div
                 key={index}
@@ -313,7 +346,8 @@ function FindCaregiver() {
                 <p>💬Languages: {cg.languages.join(", ")}</p>
                 <p>🧩Activities: {cg.activities.join(", ")}</p>
                 <p>💰Cost per Hour: Rs. {cg.rate}/hr</p>
-
+                {avgRating && <p>⭐ Average Rating: {avgRating} / 5 ({feedbacks.length} feedbacks)</p>}
+                
                 <div style={{ marginTop: "12px" }}>
                   <button
                     style={{ marginRight: "12px" }}
@@ -325,15 +359,69 @@ function FindCaregiver() {
                   </button>
 
                   {status && status !== "declined" ? (
-                    <button disabled>
-                      {status === "pending"
-                        ? "Request Pending"
-                        : "Request Accepted"}
-                    </button>
+                    <>
+                      <button disabled style={{ marginRight: "8px" }}>
+                        {status === "pending"
+                          ? "Request Pending"
+                          : "Request Accepted"}
+                      </button>
+                      {status === "accepted" && (
+                        <button
+                          onClick={() =>
+                            setFeedbackPanelOpen(cg.email)
+                          }
+                        >
+                          Give Feedback
+                        </button>
+                      )}
+                    </>
                   ) : (
                     <button onClick={() => sendRequest(cg)}>Send Request</button>
                   )}
                 </div>
+
+                {/* Feedback Panel */}
+                {feedbackPanelOpen === cg.email && (
+                  <div style={{ marginTop: "12px", padding: "12px", border: "1px solid #ccc", borderRadius: "8px" }}>
+                    <textarea
+                      placeholder="Write your feedback..."
+                      value={feedbackText}
+                      onChange={(e) => setFeedbackText(e.target.value)}
+                      style={{ width: "100%", marginBottom: "8px", padding: "8px" }}
+                    />
+                    <div style={{ marginBottom: "8px" }}>
+                      {Array.from({ length: 5 }, (_, i) => (
+                        <span
+                          key={i}
+                          style={{
+                            fontSize: "20px",
+                            cursor: "pointer",
+                            color: feedbackRating > i ? "#f39c12" : "#ccc"
+                          }}
+                          onClick={() => setFeedbackRating(i + 1)}
+                        >
+                          ★
+                        </span>
+                      ))}
+                    </div>
+                    <button onClick={() => handleSubmitFeedback(cg.email)}>Submit Feedback</button>
+                    <button onClick={() => setFeedbackPanelOpen(null)} style={{ marginLeft: "8px" }}>Cancel</button>
+                  </div>
+                )}
+
+                {/* Show existing feedbacks */}
+                {feedbacks.length > 0 && (
+                  <div style={{ marginTop: "12px" }}>
+                    <p style={{ textDecoration: "underline", margin: "0" }}>Feedbacks about the Services</p>
+                    {feedbacks.map((f, idx) => (
+                      <div key={idx} style={{ padding: "6px 0", borderBottom: "1px solid #eee" }}>
+                        <p><strong>Elderly person's name:</strong> {f.from}</p>
+                        <p><strong>Feedback:</strong> {f.feedback}</p>
+                        <p><strong>Rating:</strong> ⭐ {f.rating} / 5</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}
