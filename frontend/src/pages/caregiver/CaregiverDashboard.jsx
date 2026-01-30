@@ -2,10 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../../styles/dashboard.css";
 
-const activitiesList = [
-  "Walking","Cooking","Crafts","Reading","Gardening","Games","TV"
-];
-
+const activitiesList = ["Walking","Cooking","Crafts","Reading","Gardening","Games","TV"];
 const sriLankaCities = [
   "Colombo","Sri Jayawardenepura Kotte","Dehiwala-Mount Lavinia","Moratuwa",
   "Negombo","Kandy","Galle","Jaffna","Trincomalee","Batticaloa","Kalmunai",
@@ -25,27 +22,41 @@ function CaregiverDashboard() {
   const [location, setLocation] = useState("");
   const [selectedActivities, setSelectedActivities] = useState([]);
   const [profilePic, setProfilePic] = useState(null);
+  const [experience, setExperience] = useState(3); // NEW: experience in years
 
   useEffect(() => {
     const data = JSON.parse(localStorage.getItem("loggedInCaregiver"));
-
     if (!data) navigate("/caregiver/signin");
     else {
-      setCaregiver(data);
-      setName(data.name || "");
-      setEmail(data.email || "");
-      setLocation(data.location || "");
-      setSelectedActivities(data.activities || []);
-      setProfilePic(data.profilePic || null);
+      // Load requests from localStorage
+      const allRequests = JSON.parse(localStorage.getItem("caregiverRequests")) || {};
+      const caregiverRequests = allRequests[data.email] || [];
+
+      const formattedRequests = caregiverRequests.map(r => ({
+        elderlyName: r.name,
+        elderlyEmail: r.email,
+        sentAt: r.sentAt,
+        status: r.status || "pending"
+      }));
+
+      const caregiverWithRequests = { 
+        ...data, 
+        requests: formattedRequests,
+        experience: data.experience || 3 // default to 3 years if missing
+      };
+
+      setCaregiver(caregiverWithRequests);
+      setName(caregiverWithRequests.name || "");
+      setEmail(caregiverWithRequests.email || "");
+      setLocation(caregiverWithRequests.location || "");
+      setSelectedActivities(caregiverWithRequests.activities || []);
+      setProfilePic(caregiverWithRequests.profilePic || null);
+      setExperience(caregiverWithRequests.experience || 3);
     }
   }, [navigate]);
 
   const toggleActivity = (activity) => {
-    setSelectedActivities((prev) =>
-      prev.includes(activity)
-        ? prev.filter((a) => a !== activity)
-        : [...prev, activity]
-    );
+    setSelectedActivities(prev => prev.includes(activity) ? prev.filter(a => a !== activity) : [...prev, activity]);
   };
 
   const handleLogout = () => {
@@ -54,47 +65,59 @@ function CaregiverDashboard() {
   };
 
   const handleSaveProfile = () => {
-    const updatedCaregiver = {
-      ...caregiver,
-      name,
-      email,
-      location,
-      activities: selectedActivities,
-      profilePic,
+    const updatedCaregiver = { 
+      ...caregiver, 
+      name, 
+      email, 
+      location, 
+      activities: selectedActivities, 
+      profilePic, 
+      experience 
     };
-
-    localStorage.setItem(
-      "loggedInCaregiver",
-      JSON.stringify(updatedCaregiver)
-    );
-
     setCaregiver(updatedCaregiver);
+    localStorage.setItem("loggedInCaregiver", JSON.stringify(updatedCaregiver));
+
+    const allCaregivers = JSON.parse(localStorage.getItem("caregivers")) || [];
+    const updatedCaregivers = allCaregivers.map(cg => cg.email === caregiver.email ? updatedCaregiver : cg);
+    localStorage.setItem("caregivers", JSON.stringify(updatedCaregivers));
+
     setEditMode(false);
   };
 
-  // Delete profile picture
   const handleDeleteProfilePic = () => {
     setProfilePic(null);
-
-    const updatedCaregiver = {
-      ...caregiver,
-      profilePic: null,
-    };
-
-    localStorage.setItem(
-      "loggedInCaregiver",
-      JSON.stringify(updatedCaregiver)
-    );
-
+    const updatedCaregiver = { ...caregiver, profilePic: null };
     setCaregiver(updatedCaregiver);
+    localStorage.setItem("loggedInCaregiver", JSON.stringify(updatedCaregiver));
   };
 
-  // ✅ Delete entire profile
   const handleDeleteProfile = () => {
     if (window.confirm("Are you sure you want to delete your profile? This cannot be undone.")) {
+      const allCaregivers = JSON.parse(localStorage.getItem("caregivers")) || [];
+      const updatedCaregivers = allCaregivers.filter(cg => cg.email !== caregiver.email);
+      localStorage.setItem("caregivers", JSON.stringify(updatedCaregivers));
       localStorage.removeItem("loggedInCaregiver");
       navigate("/caregiver/signin");
     }
+  };
+
+  const handleRequestAction = (index, action) => {
+    const updatedRequests = [...(caregiver.requests || [])];
+    updatedRequests[index].status = action;
+
+    const updatedCaregiver = { ...caregiver, requests: updatedRequests };
+    setCaregiver(updatedCaregiver);
+    localStorage.setItem("loggedInCaregiver", JSON.stringify(updatedCaregiver));
+
+    const allCaregivers = JSON.parse(localStorage.getItem("caregivers")) || [];
+    const updatedCaregivers = allCaregivers.map(cg => cg.email === caregiver.email ? updatedCaregiver : cg);
+    localStorage.setItem("caregivers", JSON.stringify(updatedCaregivers));
+
+    const allRequests = JSON.parse(localStorage.getItem("caregiverRequests")) || {};
+    const caregiverRequests = allRequests[caregiver.email] || [];
+    caregiverRequests[index].status = action;
+    allRequests[caregiver.email] = caregiverRequests;
+    localStorage.setItem("caregiverRequests", JSON.stringify(allRequests));
   };
 
   if (!caregiver) return null;
@@ -103,34 +126,18 @@ function CaregiverDashboard() {
     <div className="dashboard-container">
       <div className="dashboard-header">
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          {profilePic && (
-            <img src={profilePic} alt="Profile" className="profile-image" />
-          )}
+          {profilePic && <img src={profilePic} alt="Profile" className="profile-image" />}
           <div>
             <h2>Caregiver Dashboard</h2>
-            <p>
-              Welcome, <strong>{caregiver.name}</strong>
-            </p>
+            <p>Welcome, <strong>{caregiver.name}</strong></p>
           </div>
         </div>
-        <button className="logout-btn" onClick={handleLogout}>
-          Logout
-        </button>
+        <button className="logout-btn" onClick={handleLogout}>Logout</button>
       </div>
 
       <div className="dashboard-tabs">
-        <button
-          className={activeTab === "profile" ? "active" : ""}
-          onClick={() => setActiveTab("profile")}
-        >
-          Profile
-        </button>
-        <button
-          className={activeTab === "requests" ? "active" : ""}
-          onClick={() => setActiveTab("requests")}
-        >
-          Requests
-        </button>
+        <button className={activeTab === "profile" ? "active" : ""} onClick={() => setActiveTab("profile")}>Profile</button>
+        <button className={activeTab === "requests" ? "active" : ""} onClick={() => setActiveTab("requests")}>Requests</button>
       </div>
 
       {activeTab === "profile" && (
@@ -141,102 +148,53 @@ function CaregiverDashboard() {
               <p><strong>Name:</strong> {caregiver.name}</p>
               <p><strong>Email:</strong> {caregiver.email}</p>
               <p><strong>Location:</strong> {caregiver.location}</p>
-              <p>
-                <strong>Activities:</strong>{" "}
-                {caregiver.activities && caregiver.activities.length > 0
-                  ? caregiver.activities.join(", ")
-                  : "Not specified"}
-              </p>
+              <p><strong>Experience:</strong> {caregiver.experience} years</p>
+              <p><strong>Activities:</strong> {caregiver.activities && caregiver.activities.length ? caregiver.activities.join(", ") : "Not specified"}</p>
               <div style={{ display: "flex", gap: "10px" }}>
-                <button className="edit-btn" onClick={() => setEditMode(true)}>
-                  Edit Profile
-                </button>
-                <button
-                  className="delete-btn"
-                  onClick={handleDeleteProfile}
-                  style={{ background: "#e74c3c", color: "#fff" }}
-                >
-                  Delete Profile
-                </button>
+                <button className="edit-btn" onClick={() => setEditMode(true)}>Edit Profile</button>
+                <button className="delete-btn" onClick={handleDeleteProfile} style={{ background: "#e74c3c", color: "#fff" }}>Delete Profile</button>
               </div>
             </>
           ) : (
             <>
               <h3>Edit Profile</h3>
-
               <div className="form-group">
                 <label>Profile Picture</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files[0];
-                    if (file) setProfilePic(URL.createObjectURL(file));
-                  }}
-                />
+                <input type="file" accept="image/*" onChange={e => {
+                  const file = e.target.files[0];
+                  if (file) setProfilePic(URL.createObjectURL(file));
+                }} />
                 {profilePic && (
                   <>
-                    <img
-                      src={profilePic}
-                      alt="Preview"
-                      className="profile-image-preview"
-                    />
-                    <button
-                      type="button"
-                      className="delete-btn"
-                      onClick={handleDeleteProfilePic}
-                    >
-                      Delete Picture
-                    </button>
+                    <img src={profilePic} alt="Preview" className="profile-image-preview" />
+                    <button type="button" className="delete-btn" onClick={handleDeleteProfilePic}>Delete Picture</button>
                   </>
                 )}
               </div>
-
-              <div className="form-group">
-                <label>Name</label>
-                <input value={name} onChange={(e) => setName(e.target.value)} />
-              </div>
-
-              <div className="form-group">
-                <label>Email</label>
-                <input value={email} onChange={(e) => setEmail(e.target.value)} />
-              </div>
-
-              <div className="form-group">
-                <label>Location</label>
-                <select
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                >
+              <div className="form-group"><label>Name</label><input value={name} onChange={e => setName(e.target.value)} /></div>
+              <div className="form-group"><label>Email</label><input value={email} onChange={e => setEmail(e.target.value)} /></div>
+              <div className="form-group"><label>Location</label>
+                <select value={location} onChange={e => setLocation(e.target.value)}>
                   <option value="">Select your city</option>
-                  {sriLankaCities.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
+                  {sriLankaCities.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
-
+              <div className="form-group"><label>Experience (Years)</label>
+                <input type="number" min="1" max="50" value={experience} onChange={e => setExperience(Number(e.target.value))} />
+              </div>
               <div className="filter-section">
                 <label>Activities</label>
                 <div className="checkbox-grid">
-                  {activitiesList.map((a) => (
+                  {activitiesList.map(a => (
                     <label key={a}>
-                      <input
-                        type="checkbox"
-                        checked={selectedActivities.includes(a)}
-                        onChange={() => toggleActivity(a)}
-                      />
+                      <input type="checkbox" checked={selectedActivities.includes(a)} onChange={() => toggleActivity(a)} />
                       {a}
                     </label>
                   ))}
                 </div>
               </div>
-
-              <button className="save-btn" onClick={handleSaveProfile}>
-                Save Changes
-              </button>
-              <button className="cancel-btn" onClick={() => setEditMode(false)}>
-                Cancel
-              </button>
+              <button className="save-btn" onClick={handleSaveProfile}>Save Changes</button>
+              <button className="cancel-btn" onClick={() => setEditMode(false)}>Cancel</button>
             </>
           )}
         </div>
@@ -245,7 +203,18 @@ function CaregiverDashboard() {
       {activeTab === "requests" && (
         <div className="profile-card">
           <h3>Requests</h3>
-          <p>Requests feature will be added next.</p>
+          {(!caregiver.requests || caregiver.requests.length === 0) && <p>No requests yet.</p>}
+          {caregiver.requests && caregiver.requests.map((req, index) => (
+            <div key={index} style={{ padding: "10px", borderBottom: "1px solid #ccc" }}>
+              <p><strong>{req.elderlyName}</strong> - Status: {req.status}</p>
+              {req.status === "pending" && (
+                <div>
+                  <button onClick={() => handleRequestAction(index, "accepted")} style={{ marginRight: "8px" }}>Accept</button>
+                  <button onClick={() => handleRequestAction(index, "declined")}>Decline</button>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>

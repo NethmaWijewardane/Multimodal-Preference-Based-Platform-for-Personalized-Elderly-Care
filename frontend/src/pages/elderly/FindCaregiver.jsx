@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 const sriLankaCities = [
   "Colombo",
@@ -40,26 +40,27 @@ const activitiesList = [
 
 function FindCaregiver() {
   const navigate = useNavigate();
+  const params = useParams(); // For viewing individual caregiver profile
 
   const [elderlyName, setElderlyName] = useState("");
+  const [elderlyEmail, setElderlyEmail] = useState("");
   const [caregivers, setCaregivers] = useState([]);
   const [filteredCaregivers, setFilteredCaregivers] = useState([]);
+  const [requestStatuses, setRequestStatuses] = useState({}); // tracks request status
 
   const [languageFilters, setLanguageFilters] = useState([]);
+  const [experienceFilter, setExperienceFilter] = useState(""); // NEW filter
   const [activityFilters, setActivityFilters] = useState([]);
   const [locationFilters, setLocationFilters] = useState([]);
   const [maxRate, setMaxRate] = useState(2000);
 
+  // Load caregivers and elderly info
   useEffect(() => {
-    // Get elderly user name
-    const elderlyUser =
-      JSON.parse(localStorage.getItem("elderlyUser")) || {};
+    const elderlyUser = JSON.parse(localStorage.getItem("elderlyUser")) || {};
     setElderlyName(elderlyUser.name || "Elderly User");
+    setElderlyEmail(elderlyUser.email || "");
 
-    // Get caregivers
-    const storedCaregivers =
-      JSON.parse(localStorage.getItem("caregivers")) || [];
-
+    const storedCaregivers = JSON.parse(localStorage.getItem("caregivers")) || [];
     const enrichedCaregivers = storedCaregivers.map((cg) => ({
       ...cg,
       languages: cg.languages || ["English"],
@@ -72,6 +73,7 @@ function FindCaregiver() {
     setFilteredCaregivers(enrichedCaregivers);
   }, []);
 
+  // Update filtered caregivers on filter change
   useEffect(() => {
     let result = caregivers;
 
@@ -79,6 +81,14 @@ function FindCaregiver() {
       result = result.filter((cg) =>
         languageFilters.some((lang) => cg.languages.includes(lang))
       );
+    }
+
+    if (experienceFilter) {
+      // Compare experience number
+      result = result.filter((cg) => {
+        const years = parseInt(cg.experience) || 0;
+        return years === parseInt(experienceFilter);
+      });
     }
 
     if (activityFilters.length > 0) {
@@ -96,13 +106,23 @@ function FindCaregiver() {
     result = result.filter((cg) => cg.rate <= maxRate);
 
     setFilteredCaregivers(result);
-  }, [
-    caregivers,
-    languageFilters,
-    activityFilters,
-    locationFilters,
-    maxRate,
-  ]);
+  }, [caregivers, languageFilters, experienceFilter, activityFilters, locationFilters, maxRate]);
+
+  // Poll localStorage every 1s to get latest statuses
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const allRequests = JSON.parse(localStorage.getItem("caregiverRequests")) || {};
+      const statuses = {};
+      caregivers.forEach(cg => {
+        const requests = allRequests[cg.email] || [];
+        const myRequest = requests.find(r => r.email === elderlyEmail);
+        if (myRequest) statuses[cg.email] = myRequest.status || "pending";
+      });
+      setRequestStatuses(statuses);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [caregivers, elderlyEmail]);
 
   const toggleFilter = (value, setFn) => {
     setFn((prev) =>
@@ -115,6 +135,46 @@ function FindCaregiver() {
   const handleLogout = () => {
     localStorage.removeItem("elderlyUser");
     navigate("/elderly/signin");
+  };
+
+  const sendRequest = (caregiver) => {
+    const elderlyUser = { name: elderlyName, email: elderlyEmail };
+    const allRequests = JSON.parse(localStorage.getItem("caregiverRequests")) || {};
+    const caregiverEmail = caregiver.email;
+
+    if (!allRequests[caregiverEmail]) allRequests[caregiverEmail] = [];
+
+    const existingRequest = allRequests[caregiverEmail].find(
+      (r) => r.email === elderlyUser.email
+    );
+
+    // Allow resend if declined or no existing request
+    if (!existingRequest || existingRequest.status === "declined") {
+      if (existingRequest) {
+        existingRequest.status = "pending";
+        existingRequest.sentAt = new Date().toISOString();
+      } else {
+        allRequests[caregiverEmail].push({
+          name: elderlyUser.name,
+          email: elderlyUser.email,
+          sentAt: new Date().toISOString(),
+          status: "pending",
+        });
+      }
+      localStorage.setItem("caregiverRequests", JSON.stringify(allRequests));
+      setRequestStatuses((prev) => ({ ...prev, [caregiverEmail]: "pending" }));
+      alert(`Request sent to ${caregiver.name}`);
+    } else {
+      alert("You already sent a request to this caregiver");
+    }
+  };
+
+  // FIX: Get real status directly from localStorage when viewing profile
+  const getStatusForProfile = (cgEmail) => {
+    const allRequests = JSON.parse(localStorage.getItem("caregiverRequests")) || {};
+    const requests = allRequests[cgEmail] || [];
+    const myRequest = requests.find(r => r.email === elderlyEmail);
+    return myRequest ? myRequest.status : null;
   };
 
   return (
@@ -175,9 +235,20 @@ function FindCaregiver() {
             </div>
           ))}
 
-          <p style={{ marginTop: "16px" }}>
-            <strong>Activities</strong>
-          </p>
+          {/* NEW Experience Filter */}
+          <p style={{ marginTop: "16px" }}><strong>Experience (Years)</strong></p>
+          <select
+            value={experienceFilter}
+            onChange={(e) => setExperienceFilter(e.target.value)}
+            style={{ width: "100%", padding: "4px" }}
+          >
+            <option value="">Any</option>
+            {[...Array(10)].map((_, i) => (
+              <option key={i + 1} value={i + 1}>{i + 1} years</option>
+            ))}
+          </select>
+
+          <p style={{ marginTop: "16px" }}><strong>Activities</strong></p>
           {activitiesList.map((activity) => (
             <div key={activity}>
               <input
@@ -190,9 +261,7 @@ function FindCaregiver() {
             </div>
           ))}
 
-          <p style={{ marginTop: "16px" }}>
-            <strong>Locations</strong>
-          </p>
+          <p style={{ marginTop: "16px" }}><strong>Locations</strong></p>
           <div style={{ maxHeight: "160px", overflowY: "auto" }}>
             {sriLankaCities.map((city) => (
               <div key={city}>
@@ -225,31 +294,49 @@ function FindCaregiver() {
         <div style={{ flex: 1 }}>
           <h2>{filteredCaregivers.length} Caregivers Found</h2>
 
-          {filteredCaregivers.map((cg, index) => (
-            <div
-              key={index}
-              style={{
-                marginTop: "16px",
-                padding: "16px",
-                border: "1px solid #e5e7eb",
-                borderRadius: "12px",
-              }}
-            >
-              <h3>{cg.name || "Caregiver"}</h3>
-              <p>📍 {cg.location}</p>
-              <p>🕒 {cg.experience}</p>
-              <p>💬 {cg.languages.join(", ")}</p>
-              <p>🧩 {cg.activities.join(", ")}</p>
-              <p>💰 Rs. {cg.rate}/hr</p>
+          {filteredCaregivers.map((cg, index) => {
+            // fetch latest status when viewing profile
+            const status = getStatusForProfile(cg.email);
+            return (
+              <div
+                key={index}
+                style={{
+                  marginTop: "16px",
+                  padding: "16px",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: "12px",
+                }}
+              >
+                <h3>{cg.name || "Caregiver"}</h3>
+                <p>📍Location: {cg.location}</p>
+                <p>🕒Years of Experience: {cg.experience}</p>
+                <p>💬Languages: {cg.languages.join(", ")}</p>
+                <p>🧩Activities: {cg.activities.join(", ")}</p>
+                <p>💰Cost per Hour: Rs. {cg.rate}/hr</p>
 
-              <div style={{ marginTop: "12px" }}>
-                <button style={{ marginRight: "12px" }}>
-                  View Profile
-                </button>
-                <button>Send Request</button>
+                <div style={{ marginTop: "12px" }}>
+                  <button
+                    style={{ marginRight: "12px" }}
+                    onClick={() =>
+                      navigate(`/elderly/caregiver/${cg.email}`)
+                    }
+                  >
+                    View Profile
+                  </button>
+
+                  {status && status !== "declined" ? (
+                    <button disabled>
+                      {status === "pending"
+                        ? "Request Pending"
+                        : "Request Accepted"}
+                    </button>
+                  ) : (
+                    <button onClick={() => sendRequest(cg)}>Send Request</button>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
