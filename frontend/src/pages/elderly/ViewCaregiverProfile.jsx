@@ -7,47 +7,67 @@ function ViewCaregiverProfile() {
 
   const elderlyUser = JSON.parse(localStorage.getItem("elderlyUser")) || {};
   const [caregiver, setCaregiver] = useState(null);
-  const [requests, setRequests] = useState([]);
+  const [requestStatus, setRequestStatus] = useState(null);
 
   useEffect(() => {
     const caregivers =
       JSON.parse(localStorage.getItem("caregivers")) || [];
     const found = caregivers.find(cg => cg.email === email);
 
-    if (!found) navigate(-1);
-    else setCaregiver(found);
+    if (!found) {
+      navigate(-1);
+      return;
+    }
 
-    setRequests(
-      JSON.parse(localStorage.getItem("elderlyRequests")) || []
+    setCaregiver(found);
+
+    // ✅ GET REAL STATUS FROM caregiverRequests
+    const allRequests =
+      JSON.parse(localStorage.getItem("caregiverRequests")) || {};
+
+    const caregiverRequests = allRequests[email] || [];
+    const myRequest = caregiverRequests.find(
+      r => r.email === elderlyUser.email
     );
-  }, [email, navigate]);
 
-  if (!caregiver) return null;
-
-  const existingRequest = requests.find(
-    r =>
-      r.elderlyEmail === elderlyUser.email &&
-      r.caregiverEmail === caregiver.email
-  );
+    setRequestStatus(myRequest ? myRequest.status : null);
+  }, [email, elderlyUser.email, navigate]);
 
   const sendRequest = () => {
-    const newRequest = {
-      id: Date.now().toString(),
-      elderlyName: elderlyUser.name,
-      elderlyEmail: elderlyUser.email,
-      caregiverName: caregiver.name,
-      caregiverEmail: caregiver.email,
-      status: "pending",
-      createdAt: new Date().toISOString(),
-    };
+    const allRequests =
+      JSON.parse(localStorage.getItem("caregiverRequests")) || {};
 
-    const updated = [...requests, newRequest];
-    localStorage.setItem(
-      "elderlyRequests",
-      JSON.stringify(updated)
+    if (!allRequests[caregiver.email]) {
+      allRequests[caregiver.email] = [];
+    }
+
+    const existing = allRequests[caregiver.email].find(
+      r => r.email === elderlyUser.email
     );
-    setRequests(updated);
+
+    if (!existing || existing.status === "declined") {
+      if (existing) {
+        existing.status = "pending";
+        existing.sentAt = new Date().toISOString();
+      } else {
+        allRequests[caregiver.email].push({
+          name: elderlyUser.name,
+          email: elderlyUser.email,
+          status: "pending",
+          sentAt: new Date().toISOString(),
+        });
+      }
+
+      localStorage.setItem(
+        "caregiverRequests",
+        JSON.stringify(allRequests)
+      );
+
+      setRequestStatus("pending");
+    }
   };
+
+  if (!caregiver) return null;
 
   return (
     <div style={{ padding: "24px", maxWidth: "800px", margin: "auto" }}>
@@ -91,18 +111,18 @@ function ViewCaregiverProfile() {
         </p>
 
         <div style={{ marginTop: "20px" }}>
-          {existingRequest ? (
+          {requestStatus ? (
             <strong
               style={{
                 color:
-                  existingRequest.status === "accepted"
+                  requestStatus === "accepted"
                     ? "green"
-                    : existingRequest.status === "declined"
+                    : requestStatus === "declined"
                     ? "red"
                     : "#f39c12",
               }}
             >
-              REQUEST {existingRequest.status.toUpperCase()}
+              REQUEST {requestStatus.toUpperCase()}
             </strong>
           ) : (
             <button onClick={sendRequest}>Send Request</button>
