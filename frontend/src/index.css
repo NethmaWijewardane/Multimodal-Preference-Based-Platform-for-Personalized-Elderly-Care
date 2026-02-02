@@ -33,7 +33,7 @@ a:hover {
   color: #4338ca;
 }
 
-/* ===== BUTTON RESET (auth buttons override this anyway) ===== */
+/* ===== BUTTON RESET  ===== */
 button {
   font-family: inherit;
   cursor: pointer;

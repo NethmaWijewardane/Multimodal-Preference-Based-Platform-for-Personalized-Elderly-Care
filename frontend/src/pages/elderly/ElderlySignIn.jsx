@@ -6,7 +6,6 @@ import AuthForm from "../../components/AuthForm";
 function ElderlySignIn() {
   const navigate = useNavigate();
 
-  // Redirect if already logged in
   useEffect(() => {
     const elderlyUser = JSON.parse(localStorage.getItem("elderlyUser"));
     if (elderlyUser?.token) {
@@ -14,7 +13,6 @@ function ElderlySignIn() {
     }
   }, [navigate]);
 
-  // Called when login is successful
   const handleLoginSuccess = (userData) => {
     localStorage.setItem("elderlyUser", JSON.stringify(userData));
     navigate("/elderly/find-caregiver");

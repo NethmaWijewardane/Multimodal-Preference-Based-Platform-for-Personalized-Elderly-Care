@@ -33,7 +33,6 @@ function FindCaregiver() {
   const [feedbackText, setFeedbackText] = useState("");
   const [feedbackRating, setFeedbackRating] = useState(0);
 
-  // Load caregivers from localStorage
   const loadCaregivers = () => {
     const storedCaregivers = JSON.parse(localStorage.getItem("caregivers")) || [];
     const enrichedCaregivers = storedCaregivers.map((cg) => ({
@@ -63,7 +62,6 @@ function FindCaregiver() {
     loadCaregivers();
   }, [navigate]);
 
-  // Apply filters to caregivers
   useEffect(() => {
     let result = caregivers;
 
@@ -85,7 +83,6 @@ function FindCaregiver() {
     setFilteredCaregivers(result);
   }, [caregivers, languageFilters, experienceFilter, activityFilters, locationFilters, maxRate, minPatience]);
 
-  // Update request statuses every second
   useEffect(() => {
     const interval = setInterval(() => {
       const allRequests = JSON.parse(localStorage.getItem("caregiverRequests")) || {};
@@ -112,7 +109,6 @@ function FindCaregiver() {
     navigate("/elderly/signin");
   };
 
-  // Send caregiver request
   const sendRequest = (caregiver) => {
     const allRequests = JSON.parse(localStorage.getItem("caregiverRequests")) || {};
     const caregiverEmail = caregiver.email;
@@ -132,7 +128,6 @@ function FindCaregiver() {
     alert(`Request sent to ${caregiver.name}`);
   };
 
-  // Update caregiver request status (accept, decline, complete)
   const updateRequestStatus = (caregiverEmail, newStatus) => {
     const allRequests = JSON.parse(localStorage.getItem("caregiverRequests")) || {};
     if (!allRequests[caregiverEmail]) return;
@@ -175,7 +170,6 @@ function FindCaregiver() {
     });
     localStorage.setItem("caregiverFeedbacks", JSON.stringify(allFeedbacks));
 
-    // Update request to completed
     const allRequests = JSON.parse(localStorage.getItem("caregiverRequests")) || {};
     if (allRequests[cgEmail]) {
       allRequests[cgEmail] = allRequests[cgEmail].map(r => {
@@ -198,7 +192,6 @@ function FindCaregiver() {
     return allFeedbacks[cgEmail] || [];
   };
 
-  // ✅ Full service history (pending, accepted, declined, completed)
   const getAllServiceHistory = () => {
     const allRequests = JSON.parse(localStorage.getItem("caregiverRequests")) || {};
     let history = [];

@@ -21,7 +21,6 @@ function ViewCaregiverProfile() {
 
     setCaregiver(found);
 
-    // ✅ GET REAL STATUS FROM caregiverRequests
     const allRequests =
       JSON.parse(localStorage.getItem("caregiverRequests")) || {};
 

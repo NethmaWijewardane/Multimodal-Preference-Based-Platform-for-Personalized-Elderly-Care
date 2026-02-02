@@ -19,7 +19,7 @@ function App() {
       <Route path="/elderly/signin" element={<ElderlySignIn />} />
       <Route path="/elderly/find-caregiver" element={<FindCaregiver />} />
 
-      {/* ✅ View caregiver profile */}
+      {/* View caregiver profile */}
       <Route
         path="/elderly/caregiver/:email"
         element={<ViewCaregiverProfile />}

@@ -126,7 +126,6 @@ function CaregiverDashboard() {
     }
   };
 
-  // ✅ Fix: update request with full structure
   const handleRequestAction = (index, action) => {
     const updatedRequests = [...(caregiver.requests || [])];
 
@@ -198,7 +197,6 @@ function CaregiverDashboard() {
               </div>
             </div>
           ) : (
-            // === UPDATED EDIT FORM STARTS HERE ===
             <div className="profile-card">
               <h3>Edit Profile</h3>
 
@@ -354,7 +352,6 @@ function CaregiverDashboard() {
                 <button className="cancel-btn" onClick={() => setEditMode(false)}>Cancel</button>
               </div>
             </div>
-            // === UPDATED EDIT FORM ENDS HERE ===
           )}
 
           {feedbacks.length > 0 && (
