@@ -178,30 +178,184 @@ function CaregiverDashboard() {
 
       {activeTab === "profile" && (
         <>
-          <div className="profile-card">
-            {!editMode ? (
-              <>
-                <h3>Profile Details</h3>
-                <p><strong>Name:</strong> {caregiver.name}</p>
-                <p><strong>Email:</strong> {caregiver.email}</p>
-                <p><strong>Phone:</strong> {caregiver.phone}</p>
-                <p><strong>Location:</strong> {caregiver.location}</p>
-                <p><strong>Experience:</strong> {caregiver.experience} years</p>
-                <p><strong>Patience Level:</strong> {caregiver.patience}/5</p>
-                <p><strong>Hourly Rate:</strong> Rs. {caregiver.hourlyRate}</p>
-                <p><strong>Working Hour(s):</strong> {caregiver.workingHours || "Not specified"}</p>
-                <p><strong>Activities:</strong> {caregiver.activities && caregiver.activities.length ? caregiver.activities.join(", ") : "Not specified"}</p>
-                {avgRating && <p>⭐ Average Rating: {avgRating} / 5 ({feedbacks.length} feedbacks)</p>}
+          {!editMode ? (
+            <div className="profile-card">
+              <h3>Profile Details</h3>
+              <p><strong>Name:</strong> {caregiver.name}</p>
+              <p><strong>Email:</strong> {caregiver.email}</p>
+              <p><strong>Phone:</strong> {caregiver.phone}</p>
+              <p><strong>Location:</strong> {caregiver.location}</p>
+              <p><strong>Experience:</strong> {caregiver.experience} years</p>
+              <p><strong>Patience Level:</strong> {caregiver.patience}/5</p>
+              <p><strong>Hourly Rate:</strong> Rs. {caregiver.hourlyRate}</p>
+              <p><strong>Working Hour(s):</strong> {caregiver.workingHours || "Not specified"}</p>
+              <p><strong>Activities:</strong> {caregiver.activities && caregiver.activities.length ? caregiver.activities.join(", ") : "Not specified"}</p>
+              {avgRating && <p>⭐ Average Rating: {avgRating} / 5 ({feedbacks.length} feedbacks)</p>}
 
-                <div style={{ display: "flex", gap: "10px", marginTop: "12px" }}>
-                  <button className="edit-btn" onClick={() => setEditMode(true)}>Edit Profile</button>
-                  <button className="delete-btn" onClick={handleDeleteProfile} style={{ background: "#e74c3c", color: "#fff" }}>Delete Profile</button>
+              <div style={{ display: "flex", gap: "10px", marginTop: "12px" }}>
+                <button className="edit-btn" onClick={() => setEditMode(true)}>Edit Profile</button>
+                <button className="delete-btn" onClick={handleDeleteProfile} style={{ background: "#e74c3c", color: "#fff" }}>Delete Profile</button>
+              </div>
+            </div>
+          ) : (
+            // === UPDATED EDIT FORM STARTS HERE ===
+            <div className="profile-card">
+              <h3>Edit Profile</h3>
+
+              {/* Profile Picture */}
+              <div style={{ marginBottom: "12px" }}>
+                {profilePic ? (
+                  <>
+                    <img src={profilePic} alt="Profile" className="profile-image" />
+                    <button type="button" onClick={handleDeleteProfilePic} style={{ marginLeft: "8px" }}>Delete Picture</button>
+                  </>
+                ) : (
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onloadend = () => setProfilePic(reader.result);
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                )}
+              </div>
+
+              {/* Full Name */}
+              <div className="form-group">
+                <label>Full Name:</label>
+                <input 
+                  type="text" 
+                  value={name} 
+                  onChange={(e) => setName(e.target.value)} 
+                />
+              </div>
+
+              {/* Phone */}
+              <div className="form-group">
+                <label>Phone (10 digits starting with 0):</label>
+                <input 
+                  type="text" 
+                  value={phone} 
+                  maxLength={10}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/, ""))} 
+                />
+              </div>
+
+              {/* Location Dropdown */}
+              <div className="form-group">
+                <label>Location:</label>
+                <select value={location} onChange={(e) => setLocation(e.target.value)}>
+                  <option value="">Select Location</option>
+                  {sriLankaCities.map(city => (
+                    <option key={city} value={city}>{city}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Experience Dropdown */}
+              <div className="form-group">
+                <label>Experience (Years):</label>
+                <select value={experience} onChange={(e) => setExperience(Number(e.target.value))}>
+                  {[...Array(10)].map((_, i) => (
+                    <option key={i+1} value={i+1}>{i+1} year{ i > 0 ? "s" : ""}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Patience Slider */}
+              <div className="form-group">
+                <label>Patience Level: {patience}</label>
+                <input 
+                  type="range" 
+                  min={1} max={5} 
+                  step={1} 
+                  value={patience} 
+                  onChange={(e) => setPatience(Number(e.target.value))} 
+                />
+              </div>
+
+              {/* Hourly Rate Slider */}
+              <div className="form-group">
+                <label>Hourly Rate: Rs. {hourlyRate}</label>
+                <input 
+                  type="range" 
+                  min={500} max={3000} 
+                  step={50} 
+                  value={hourlyRate} 
+                  onChange={(e) => setHourlyRate(Number(e.target.value))} 
+                />
+              </div>
+
+              {/* Working Hours */}
+              <div className="form-group">
+                <label>Working Hours:</label>
+                <input 
+                  type="text" 
+                  value={workingHours} 
+                  onChange={(e) => setWorkingHours(e.target.value)} 
+                  placeholder="e.g., 9:00 AM - 5:00 PM"
+                />
+              </div>
+
+              {/* Activities Checkboxes */}
+              <div className="form-group">
+                <label>Activities:</label>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                  {["TV", "Gardening", "Gaming", "Grocery Shopping", "Crafting", "Walking", "Reading", "Cooking"].map(act => (
+                    <label key={act}>
+                      <input 
+                        type="checkbox" 
+                        checked={selectedActivities.includes(act)} 
+                        onChange={() => {
+                          setSelectedActivities(prev => prev.includes(act) 
+                            ? prev.filter(a => a !== act) 
+                            : [...prev, act]
+                          );
+                        }} 
+                      />
+                      {act}
+                    </label>
+                  ))}
                 </div>
-              </>
-            ) : (
-              <div>Edit form here...</div> // keep your existing edit form
-            )}
-          </div>
+              </div>
+
+              {/* Languages Checkboxes */}
+              <div className="form-group">
+                <label>Languages:</label>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  {["English", "Sinhala", "Tamil"].map(lang => (
+                    <label key={lang}>
+                      <input 
+                        type="checkbox" 
+                        checked={caregiver.languages?.includes(lang)} 
+                        onChange={() => {
+                          const langs = caregiver.languages || [];
+                          if (langs.includes(lang)) {
+                            setCaregiver({...caregiver, languages: langs.filter(l => l !== lang)});
+                          } else {
+                            setCaregiver({...caregiver, languages: [...langs, lang]});
+                          }
+                        }} 
+                      />
+                      {lang}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Save & Cancel Buttons */}
+              <div style={{ marginTop: "16px", display: "flex", gap: "8px" }}>
+                <button className="save-btn" onClick={handleSaveProfile}>Save</button>
+                <button className="cancel-btn" onClick={() => setEditMode(false)}>Cancel</button>
+              </div>
+            </div>
+            // === UPDATED EDIT FORM ENDS HERE ===
+          )}
 
           {feedbacks.length > 0 && (
             <div className="profile-card" style={{ marginTop: "16px" }}>
