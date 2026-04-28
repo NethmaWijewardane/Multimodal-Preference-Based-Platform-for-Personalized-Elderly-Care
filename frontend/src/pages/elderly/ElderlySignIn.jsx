@@ -13,14 +13,25 @@ function ElderlySignIn() {
     }
   }, [navigate]);
 
-  const handleLoginSuccess = (userData) => {
-    localStorage.setItem("elderlyUser", JSON.stringify(userData));
+  const handleLoginSuccess = (data) => {
+    // ✅ FIX: Flatten structure
+    const formattedUser = {
+      token: data.token,
+      ...data.user
+    };
+
+    localStorage.setItem("elderlyUser", JSON.stringify(formattedUser));
+
     navigate("/elderly/find-caregiver");
   };
 
   return (
     <AuthLayout title="Sign In" subtitle="Welcome back! Please sign in to continue.">
-      <AuthForm type="signin" defaultRole="elderly" onSuccess={handleLoginSuccess} />
+      <AuthForm
+        type="signin"
+        defaultRole="elderly"
+        onSuccess={handleLoginSuccess}
+      />
     </AuthLayout>
   );
 }

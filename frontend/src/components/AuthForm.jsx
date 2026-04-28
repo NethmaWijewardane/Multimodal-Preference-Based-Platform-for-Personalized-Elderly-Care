@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Users, Heart } from "lucide-react";
+import axios from "axios";
 import "../styles/auth.css";
 
 const sriLankaCities = [
@@ -30,10 +31,11 @@ function AuthForm({ type = "signin", defaultRole = "elderly", onSuccess }) {
     navigate(isSignUp ? `/${role}/signup` : `/${role}/signin`);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
+    // ---------------- VALIDATION ----------------
     if (!email.endsWith("@gmail.com")) {
       setError("Email must be a valid @gmail.com address");
       return;
@@ -49,65 +51,60 @@ function AuthForm({ type = "signin", defaultRole = "elderly", onSuccess }) {
       return;
     }
 
-    const userData = {
-      name: name || email.split("@")[0],
-      email,
-      password,
-      location: locationValue || "Colombo",
-      token: "dummy-token",
-    };
+    try {
+      // ---------------- SIGN UP ----------------
+      if (isSignUp) {
+        const response = await axios.post(
+          "http://localhost:5000/api/auth/signup",
+          {
+            name: name || email.split("@")[0],
+            email,
+            password,
+            role: activeTab,
+            location: locationValue
+          }
+        );
 
-    /* ---------------- SIGN UP ---------------- */
-    if (isSignUp) {
-      if (activeTab === "caregiver") {
-        const storedCaregivers =
-          JSON.parse(localStorage.getItem("caregivers")) || [];
+        console.log("SIGNUP SUCCESS:", response.data);
 
-        storedCaregivers.push({
-          ...userData,
-          activities: [],
-          languages: ["English"],
-          rate: 800,
-          experience: "1 year",
-          profilePic: null,
-        });
+        setSuccess("Account created successfully! Redirecting...");
 
-        localStorage.setItem("caregivers", JSON.stringify(storedCaregivers));
-      }
+        setTimeout(() => {
+          navigate(`/${activeTab}/signin`);
+        }, 1000);
 
-      setSuccess("Account created successfully! Redirecting to Sign In...");
-      setTimeout(() => {
-        navigate(`/${activeTab}/signin`);
-      }, 1000);
-
-      return;
-    }
-
-    /* ---------------- SIGN IN ---------------- */
-    if (activeTab === "caregiver") {
-      const storedCaregivers =
-        JSON.parse(localStorage.getItem("caregivers")) || [];
-
-      const matchedUser = storedCaregivers.find(
-        (u) => u.email === email && u.password === password
-      );
-
-      if (!matchedUser) {
-        setError("Invalid email or password");
         return;
       }
 
-      if (onSuccess) onSuccess(matchedUser);
-      return;
-    }
+      // ---------------- SIGN IN ----------------
+      const response = await axios.post(
+        "http://localhost:5000/api/auth/signin",
+        {
+          email,
+          password
+        }
+      );
 
-    /* ---------------- ELDERLY SIGN IN ---------------- */
-    if (onSuccess) {
-      onSuccess({
-        name: email.split("@")[0],
-        email,
-        token: "dummy-token",
-      });
+      console.log("LOGIN RESPONSE:", response.data);
+
+      // ---------------- SAFE TOKEN HANDLING ----------------
+      const token = response.data?.token;
+
+      if (!token) {
+        setError("Login failed: token not received from server");
+        return;
+      }
+
+      localStorage.setItem("token", token);
+
+      setSuccess("Login successful!");
+
+      // pass data to parent (dashboard)
+      if (onSuccess) onSuccess(response.data);
+
+    } catch (err) {
+      console.error("AUTH ERROR:", err.response?.data || err.message);
+      setError(err.response?.data?.message || "Something went wrong");
     }
   };
 
@@ -120,6 +117,7 @@ function AuthForm({ type = "signin", defaultRole = "elderly", onSuccess }) {
         >
           <Users size={16} /> Elderly
         </div>
+
         <div
           className={`tab ${activeTab === "caregiver" ? "active" : ""}`}
           onClick={() => handleTabClick("caregiver")}
@@ -187,9 +185,11 @@ function AuthForm({ type = "signin", defaultRole = "elderly", onSuccess }) {
       <div
         className="switch-link"
         onClick={() =>
-          navigate(isSignUp
-            ? `/${activeTab}/signin`
-            : `/${activeTab}/signup`)
+          navigate(
+            isSignUp
+              ? `/${activeTab}/signin`
+              : `/${activeTab}/signup`
+          )
         }
       >
         {isSignUp
