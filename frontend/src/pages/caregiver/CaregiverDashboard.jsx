@@ -4,7 +4,7 @@ import axios from "axios";
 import "../../styles/dashboard.css";
 
 const activitiesList = [
-  "Walking","Cooking","Crafts","Reading","Gardening","Games","TV"
+  "Walking", "Cooking", "Crafts", "Reading", "Gardening", "Games", "TV"
 ];
 
 const sriLankaCities = [
@@ -14,6 +14,8 @@ const sriLankaCities = [
   "Puttalam","Kalutara","Nuwara Eliya","Dambulla","Polonnaruwa",
   "Badulla","Hambantota","Matale"
 ];
+
+const languagesList = ["Sinhala", "English", "Tamil"];
 
 function CaregiverDashboard() {
   const navigate = useNavigate();
@@ -31,8 +33,10 @@ function CaregiverDashboard() {
   const [patience, setPatience] = useState(3);
   const [hourlyRate, setHourlyRate] = useState(1000);
   const [selectedActivities, setSelectedActivities] = useState([]);
+  const [selectedLanguages, setSelectedLanguages] = useState([]);
 
-  /* ---------------- JWT LOAD ---------------- */
+  const [profileImage, setProfileImage] = useState(null);
+
   useEffect(() => {
     const fetchUser = async () => {
       const token = localStorage.getItem("token");
@@ -60,6 +64,8 @@ function CaregiverDashboard() {
         setPatience(data.patience || 3);
         setHourlyRate(data.hourlyRate || 1000);
         setSelectedActivities(data.activities || []);
+        setSelectedLanguages(data.languages || []);
+        setProfileImage(data.profileImage || null);
 
       } catch (err) {
         if (err.response?.status === 401) {
@@ -72,7 +78,17 @@ function CaregiverDashboard() {
     fetchUser();
   }, [navigate]);
 
-  /* ---------------- TOGGLE ACTIVITY ---------------- */
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setProfileImage(URL.createObjectURL(file));
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setProfileImage(null);
+  };
+
   const toggleActivity = (act) => {
     setSelectedActivities(prev =>
       prev.includes(act)
@@ -81,29 +97,64 @@ function CaregiverDashboard() {
     );
   };
 
-  /* ---------------- LOGOUT ---------------- */
+  const toggleLanguage = (lang) => {
+    setSelectedLanguages(prev =>
+      prev.includes(lang)
+        ? prev.filter(l => l !== lang)
+        : [...prev, lang]
+    );
+  };
+
   const handleLogout = () => {
     localStorage.removeItem("token");
     navigate("/caregiver/signin");
   };
 
-  /* ---------------- SAVE PROFILE ---------------- */
-  const handleSaveProfile = () => {
-    const updated = {
-      ...caregiver,
-      name,
-      email,
-      phone,
-      location,
-      workingHours,
-      experience,
-      patience,
-      hourlyRate,
-      activities: selectedActivities
-    };
+  const handleSaveProfile = async () => {
+    try {
+      const token = localStorage.getItem("token");
 
-    setCaregiver(updated);
-    setEditMode(false);
+      const updated = {
+        name,
+        email,
+        phone,
+        location,
+        workingHours,
+        experience,
+        patience,
+        hourlyRate,
+        activities: selectedActivities,
+        languages: selectedLanguages,
+        profileImage
+      };
+
+      const res = await axios.put(
+        "http://localhost:5000/api/users/update-profile",
+        updated,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      const updatedUser = res.data;
+
+      setCaregiver(updatedUser);
+      setName(updatedUser.name || "");
+      setPhone(updatedUser.phone || "");
+      setLocation(updatedUser.location || "");
+      setWorkingHours(updatedUser.workingHours || "");
+      setExperience(updatedUser.experience || 3);
+      setPatience(updatedUser.patience || 3);
+      setHourlyRate(updatedUser.hourlyRate || 1000);
+      setSelectedActivities(updatedUser.activities || []);
+      setSelectedLanguages(updatedUser.languages || []);
+      setProfileImage(updatedUser.profileImage || null);
+
+      setEditMode(false);
+      alert("Profile updated successfully!");
+
+    } catch (err) {
+      console.error(err);
+      alert("Failed to update profile");
+    }
   };
 
   if (!caregiver) return <p>Loading dashboard...</p>;
@@ -111,11 +162,24 @@ function CaregiverDashboard() {
   return (
     <div className="dashboard-container">
 
-      {/* HEADER */}
+      {/* ✅ FIXED HEADER ONLY */}
       <div className="dashboard-header">
-        <div>
-          <h2>Caregiver Dashboard</h2>
-          <p>Welcome, <strong>{caregiver.name}</strong></p>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+
+          <img
+            src={
+              profileImage ||
+              caregiver?.profileImage ||
+              "https://via.placeholder.com/50"
+            }
+            alt="Profile"
+            className="profile-image"
+          />
+
+          <div>
+            <h2>Caregiver Dashboard</h2>
+            <p>Welcome, <strong>{caregiver.name}</strong></p>
+          </div>
         </div>
 
         <button className="logout-btn" onClick={handleLogout}>
@@ -123,7 +187,6 @@ function CaregiverDashboard() {
         </button>
       </div>
 
-      {/* TABS */}
       <div className="dashboard-tabs">
         <button
           className={activeTab === "profile" ? "active" : ""}
@@ -140,12 +203,19 @@ function CaregiverDashboard() {
         </button>
       </div>
 
-      {/* ================= PROFILE ================= */}
       {activeTab === "profile" && (
         <div className="profile-card">
 
           {!editMode ? (
             <>
+              {profileImage && (
+                <img
+                  src={profileImage}
+                  alt="Profile"
+                  className="profile-image-preview"
+                />
+              )}
+
               <p><strong>Name:</strong> {caregiver.name}</p>
               <p><strong>Email:</strong> {caregiver.email}</p>
               <p><strong>Phone:</strong> {caregiver.phone}</p>
@@ -155,17 +225,46 @@ function CaregiverDashboard() {
               <p><strong>Hourly Rate:</strong> Rs. {caregiver.hourlyRate}</p>
               <p><strong>Working Hours:</strong> {caregiver.workingHours}</p>
               <p><strong>Activities:</strong> {caregiver.activities?.join(", ")}</p>
+              <p><strong>Languages:</strong> {caregiver.languages?.join(", ")}</p>
 
-              <button onClick={() => setEditMode(true)}>
+              <button className="primary-btn" onClick={() => setEditMode(true)}>
                 Edit Profile
               </button>
             </>
           ) : (
-            <>
-              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" />
-              <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone" />
+            <div className="form-layout">
 
-              {/* Location */}
+              <div className="form-group">
+                <label>Profile Image</label>
+
+                {profileImage && (
+                  <img
+                    src={profileImage}
+                    alt="Preview"
+                    className="profile-image-preview"
+                  />
+                )}
+
+                <input type="file" accept="image/*" onChange={handleImageChange} />
+
+                {profileImage && (
+                  <button
+                    type="button"
+                    className="cancel-btn"
+                    onClick={handleRemoveImage}
+                  >
+                    Remove Image
+                  </button>
+                )}
+              </div>
+
+              <label>Full Name</label>
+              <input value={name} onChange={(e) => setName(e.target.value)} />
+
+              <label>Phone</label>
+              <input value={phone} onChange={(e) => setPhone(e.target.value)} />
+
+              <label>Location</label>
               <select value={location} onChange={(e) => setLocation(e.target.value)}>
                 <option value="">Select Location</option>
                 {sriLankaCities.map(city => (
@@ -173,27 +272,39 @@ function CaregiverDashboard() {
                 ))}
               </select>
 
-              <input value={workingHours} onChange={(e) => setWorkingHours(e.target.value)} placeholder="Working Hours" />
+              <label>Working Hours</label>
+              <input
+                placeholder="e.g., 9:00 AM - 5:00 PM"
+                value={workingHours}
+                onChange={(e) => setWorkingHours(e.target.value)}
+              />
 
-              {/* EXPERIENCE */}
-              <label>Experience: {experience} years</label>
-              <input type="range" min="1" max="10" value={experience}
-                onChange={(e) => setExperience(Number(e.target.value))} />
+              <div className="slider-group">
+                <label>Experience: {experience} years</label>
+                <input type="range" min="1" max="10"
+                  value={experience}
+                  onChange={(e) => setExperience(Number(e.target.value))}
+                />
+              </div>
 
-              {/* PATIENCE */}
-              <label>Patience: {patience}/5</label>
-              <input type="range" min="1" max="5" value={patience}
-                onChange={(e) => setPatience(Number(e.target.value))} />
+              <div className="slider-group">
+                <label>Patience Level: {patience}</label>
+                <input type="range" min="1" max="5"
+                  value={patience}
+                  onChange={(e) => setPatience(Number(e.target.value))}
+                />
+              </div>
 
-              {/* RATE */}
-              <label>Hourly Rate: Rs {hourlyRate}</label>
-              <input type="range" min="500" max="5000" step="100"
-                value={hourlyRate}
-                onChange={(e) => setHourlyRate(Number(e.target.value))} />
+              <div className="slider-group">
+                <label>Hourly Rate: Rs. {hourlyRate}</label>
+                <input type="range" min="500" max="2000" step="100"
+                  value={hourlyRate}
+                  onChange={(e) => setHourlyRate(Number(e.target.value))}
+                />
+              </div>
 
-              {/* ACTIVITIES */}
-              <p><b>Activities</b></p>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+              <label>Activities</label>
+              <div className="checkbox-group">
                 {activitiesList.map(act => (
                   <label key={act}>
                     <input
@@ -206,14 +317,34 @@ function CaregiverDashboard() {
                 ))}
               </div>
 
-              <button onClick={handleSaveProfile}>Save</button>
-              <button onClick={() => setEditMode(false)}>Cancel</button>
-            </>
+              <label>Languages</label>
+              <div className="checkbox-group">
+                {languagesList.map(lang => (
+                  <label key={lang}>
+                    <input
+                      type="checkbox"
+                      checked={selectedLanguages.includes(lang)}
+                      onChange={() => toggleLanguage(lang)}
+                    />
+                    {lang}
+                  </label>
+                ))}
+              </div>
+
+              <div className="form-buttons">
+                <button className="save-btn" onClick={handleSaveProfile}>
+                  Save
+                </button>
+                <button className="cancel-btn" onClick={() => setEditMode(false)}>
+                  Cancel
+                </button>
+              </div>
+
+            </div>
           )}
         </div>
       )}
 
-      {/* ================= REQUESTS ================= */}
       {activeTab === "requests" && (
         <div className="profile-card">
           <h3>Requests</h3>

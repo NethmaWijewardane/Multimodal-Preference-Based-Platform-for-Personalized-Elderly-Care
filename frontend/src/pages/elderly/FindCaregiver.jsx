@@ -29,30 +29,39 @@ function FindCaregiver() {
   const [maxRate, setMaxRate] = useState(2000);
   const [minPatience, setMinPatience] = useState(1);
 
-  /* ---------------- LOAD CAREGIVERS FROM MONGODB ---------------- */
   const loadCaregivers = async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/users/caregivers");
+      const token = localStorage.getItem("token");
+
+      const res = await fetch(
+        "http://localhost:5000/api/users/caregivers",
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store"
+        }
+      );
+
       const data = await res.json();
 
       const enriched = data.map((cg) => ({
         ...cg,
-        languages: cg.languages || ["English"],
-        activities: cg.activities || ["Walking", "Reading"],
+        name: cg.name || "Unnamed Caregiver",
+        location: cg.location || "Unknown",
         rate: cg.hourlyRate || 800,
-        experience: cg.experience || "3 years",
-        patience: cg.patience || 3,
+        languages: cg.languages || [],
+        activities: cg.activities || [],
+        experience: cg.experience || 0,
+        patience: cg.patience || 0
       }));
 
-      setCaregivers(enriched);
-      setFilteredCaregivers(enriched);
+      setCaregivers([...enriched]);
+      setFilteredCaregivers([...enriched]);
 
     } catch (err) {
       console.error("❌ Error loading caregivers:", err);
     }
   };
 
-  /* ---------------- INIT USER ---------------- */
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("elderlyUser"));
 
@@ -64,9 +73,19 @@ function FindCaregiver() {
     }
 
     loadCaregivers();
+
+    const interval = setInterval(loadCaregivers, 3000);
+    const onFocus = () => loadCaregivers();
+
+    window.addEventListener("focus", onFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+    };
+
   }, [navigate]);
 
-  /* ---------------- FILTER LOGIC ---------------- */
   useEffect(() => {
     let result = caregivers;
 
@@ -98,6 +117,7 @@ function FindCaregiver() {
     result = result.filter((cg) => (cg.patience || 1) >= minPatience);
 
     setFilteredCaregivers(result);
+
   }, [
     caregivers,
     languageFilters,
@@ -108,7 +128,6 @@ function FindCaregiver() {
     minPatience
   ]);
 
-  /* ---------------- TOGGLE FILTER ---------------- */
   const toggleFilter = (value, setFn) => {
     setFn((prev) =>
       prev.includes(value)
@@ -117,16 +136,15 @@ function FindCaregiver() {
     );
   };
 
-  /* ---------------- LOGOUT ---------------- */
   const handleLogout = () => {
     localStorage.removeItem("elderlyUser");
+    localStorage.removeItem("token");
     navigate("/elderly/signin");
   };
 
   return (
     <div style={{ padding: 24 }}>
 
-      {/* HEADER */}
       <div style={{ display: "flex", justifyContent: "space-between" }}>
         <h2>Find a Caregiver</h2>
 
@@ -137,74 +155,32 @@ function FindCaregiver() {
 
       <p>Welcome, {elderlyName}</p>
 
-      {/* ================= 3 COLUMN LAYOUT ================= */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "280px 1fr 280px",
-          gap: "24px",
-          marginTop: 20
-        }}
-      >
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "280px 1fr 280px",
+        gap: "24px",
+        marginTop: 20
+      }}>
 
-        {/* ================= FILTERS ================= */}
+        {/* LEFT FILTERS */}
         <div style={{ border: "1px solid #ddd", padding: 12, borderRadius: 10 }}>
-
           <h3>Filters</h3>
 
-          {/* Activities */}
-          <p><b>Activities</b></p>
-          {activitiesList.map((act) => (
-            <div key={act}>
-              <input
-                type="checkbox"
-                onChange={() => toggleFilter(act, setActivityFilters)}
-              /> {act}
-            </div>
-          ))}
-
-          {/* Languages */}
-          <p style={{ marginTop: 12 }}><b>Languages</b></p>
-          {["Sinhala","English","Tamil"].map((lang) => (
-            <div key={lang}>
-              <input
-                type="checkbox"
-                onChange={() => toggleFilter(lang, setLanguageFilters)}
-              /> {lang}
-            </div>
-          ))}
-
-          {/* Locations */}
-          <p style={{ marginTop: 12 }}><b>📍 Locations</b></p>
-
-          <div style={{ maxHeight: 180, overflowY: "auto", border: "1px solid #eee", padding: 6 }}>
-            {sriLankaCities.map((city) => (
-              <div key={city}>
-                <input
-                  type="checkbox"
-                  onChange={() => toggleFilter(city, setLocationFilters)}
-                /> {city}
-              </div>
-            ))}
-          </div>
-
-          {/* SLIDER 1 */}
-          <p style={{ marginTop: 16 }}>
-            <b>💰 Max Hourly Rate: Rs {maxRate}</b>
-          </p>
+          {/* 💰 MAX RATE SLIDER (FIXED) */}
+          <p><b>💰 Max Rate (Rs {maxRate})</b></p>
           <input
             type="range"
             min="500"
-            max="5000"
+            max="2000"
             step="100"
             value={maxRate}
-            onChange={(e) => setMaxRate(Number(e.target.value))}
+            onChange={(e) => setMaxRate(parseInt(e.target.value))}
             style={{ width: "100%" }}
           />
 
-          {/* SLIDER 2 */}
-          <p style={{ marginTop: 16 }}>
-            <b>🕊 Min Patience Level: {minPatience}/5</b>
+          {/* 🕊 MIN PATIENCE SLIDER */}
+          <p style={{ marginTop: 15 }}>
+            <b>🕊 Min Patience ({minPatience}/5)</b>
           </p>
           <input
             type="range"
@@ -212,42 +188,63 @@ function FindCaregiver() {
             max="5"
             step="1"
             value={minPatience}
-            onChange={(e) => setMinPatience(Number(e.target.value))}
+            onChange={(e) => setMinPatience(parseInt(e.target.value))}
             style={{ width: "100%" }}
           />
 
+          <p><b>Activities</b></p>
+          {activitiesList.map((act) => (
+            <div key={act}>
+              <input type="checkbox"
+                onChange={() => toggleFilter(act, setActivityFilters)}
+              /> {act}
+            </div>
+          ))}
+
+          <p><b>Languages</b></p>
+          {["Sinhala","English","Tamil"].map((lang) => (
+            <div key={lang}>
+              <input type="checkbox"
+                onChange={() => toggleFilter(lang, setLanguageFilters)}
+              /> {lang}
+            </div>
+          ))}
+
+          <p><b>Locations</b></p>
+          {sriLankaCities.map((city) => (
+            <div key={city}>
+              <input type="checkbox"
+                onChange={() => toggleFilter(city, setLocationFilters)}
+              /> {city}
+            </div>
+          ))}
+
         </div>
 
-        {/* ================= CAREGIVERS ================= */}
+        {/* CAREGIVERS */}
         <div>
           <h3>{filteredCaregivers.length} Caregiver(s) Found</h3>
 
           {filteredCaregivers.map((cg, i) => (
-            <div
-              key={i}
-              style={{
-                border: "1px solid #ddd",
-                padding: 12,
-                marginBottom: 12,
-                borderRadius: 10
-              }}
-            >
-              <h3>{cg.name}</h3>
+            <div key={i} style={{
+              border: "1px solid #ddd",
+              padding: 12,
+              marginBottom: 12,
+              borderRadius: 10
+            }}>
+              <h3>👤 {cg.name}</h3>
               <p>📍 {cg.location}</p>
               <p>💰 Rs {cg.rate}/hr</p>
+              <p>🧠 Experience: {cg.experience}</p>
               <p>🕊 Patience: {cg.patience}/5</p>
-
-              <button onClick={() => alert("Request sent")}>
-                Send Request
-              </button>
+              <p>🗣 Languages: {cg.languages.join(", ") || "N/A"}</p>
+              <p>🎯 Activities: {cg.activities.join(", ") || "N/A"}</p>
             </div>
           ))}
         </div>
 
-        {/* ================= SERVICE HISTORY ================= */}
-        <div style={{ border: "1px solid #ddd", padding: 12, borderRadius: 10 }}>
+        <div>
           <h3>Service History</h3>
-          <p>No service history yet.</p>
         </div>
 
       </div>
