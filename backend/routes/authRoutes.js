@@ -1,103 +1,107 @@
 import express from "express";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 import User from "../models/user.js";
 import { requireAuth } from "../middleware/auth.js";
 
 const router = express.Router();
 
-// ---------------------------
-// SIGNUP - create a new user
-// ---------------------------
+/* ---------------- SIGNUP ---------------- */
 router.post("/signup", async (req, res) => {
   try {
-    console.log("🔥 SIGNUP BODY RECEIVED:", req.body);
+    const { name, email, password, role, location } = req.body;
 
-    // Check if email already exists
-    const exists = await User.findOne({ email: req.body.email });
-    if (exists) {
-      console.log("❌ Email already exists:", req.body.email);
+    if (!name || !email || !password || !role) {
+      return res.status(400).json({ message: "Missing fields" });
+    }
+
+    const existing = await User.findOne({ email });
+    if (existing) {
       return res.status(400).json({ message: "Email already exists" });
     }
 
-    // Hash the password
-    const hashedPassword = await bcrypt.hash(req.body.password, 10);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create user
     const user = await User.create({
-      ...req.body,
-      password: hashedPassword
+      name,
+      email,
+      password: hashedPassword,
+      role,
+      location
     });
 
-    console.log("✅ USER CREATED:", user);
+    res.status(201).json({
+      message: "User created",
+      userId: user._id
+    });
 
-    res.status(201).json({ message: "Account created", userId: user._id });
   } catch (err) {
-    console.error("SIGNUP ERROR:", err);
+    console.log(err);
     res.status(500).json({ message: "Server error" });
   }
 });
 
-// ---------------------------
-// SIGNIN - login user
-// ---------------------------
+/* ---------------- SIGNIN ---------------- */
 router.post("/signin", async (req, res) => {
   try {
-    console.log("🔥 SIGNIN BODY RECEIVED:", req.body);
+    const { email, password } = req.body;
 
-    const user = await User.findOne({ email: req.body.email });
+    const user = await User.findOne({ email });
+
     if (!user) {
-      console.log("❌ User not found:", req.body.email);
       return res.status(404).json({ message: "User not found" });
     }
 
-    const passwordMatch = await bcrypt.compare(req.body.password, user.password);
-    if (!passwordMatch) {
-      console.log("❌ Invalid credentials for:", req.body.email);
+    const ok = await bcrypt.compare(password, user.password);
+
+    if (!ok) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // Save user session
-    req.session.userId = user._id;
-    req.session.role = user.role;
+    // IMPORTANT: JWT MUST contain id
+    const token = jwt.sign(
+      {
+        id: user._id,
+        role: user.role
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" }
+    );
 
-    console.log("✅ USER LOGGED IN:", user._id);
+    res.json({
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        location: user.location
+      }
+    });
 
-    res.json({ message: "Signed in", userId: user._id, role: user.role });
   } catch (err) {
-    console.error("SIGNIN ERROR:", err);
+    console.log(err);
     res.status(500).json({ message: "Server error" });
   }
 });
 
-// ---------------------------
-// GET CURRENT LOGGED-IN USER
-// ---------------------------
+/* ---------------- ME (FIXED) ---------------- */
 router.get("/me", requireAuth, async (req, res) => {
   try {
-    const user = await User.findById(req.session.userId).select("-password");
+    console.log("USER FROM TOKEN:", req.user);
+
+    const user = await User.findById(req.user.id).select("-password");
+
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
+
     res.json(user);
+
   } catch (err) {
-    console.error("GET /me ERROR:", err);
+    console.log(err);
     res.status(500).json({ message: "Server error" });
   }
-});
-
-// ---------------------------
-// LOGOUT
-// ---------------------------
-router.post("/logout", requireAuth, (req, res) => {
-  req.session.destroy(err => {
-    if (err) {
-      console.error("LOGOUT ERROR:", err);
-      return res.status(500).json({ message: "Logout failed" });
-    }
-    res.clearCookie("elderly.sid");
-    console.log("✅ USER LOGGED OUT");
-    res.json({ message: "Logged out" });
-  });
 });
 
 export default router;
