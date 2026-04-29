@@ -1,10 +1,8 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-
 import ElderlySignUp from "./pages/elderly/ElderlySignUp";
 import ElderlySignIn from "./pages/elderly/ElderlySignIn";
 import FindCaregiver from "./pages/elderly/FindCaregiver";
 import ViewCaregiverProfile from "./pages/elderly/ViewCaregiverProfile";
-
 import CaregiverSignUp from "./pages/caregiver/CaregiverSignUp";
 import CaregiverSignIn from "./pages/caregiver/CaregiverSignIn";
 import CaregiverDashboard from "./pages/caregiver/CaregiverDashboard";
@@ -19,9 +17,9 @@ function App() {
       <Route path="/elderly/signin" element={<ElderlySignIn />} />
       <Route path="/elderly/find-caregiver" element={<FindCaregiver />} />
 
-      {/* View caregiver profile */}
+      {/* ✅ FIXED: now uses ID instead of email */}
       <Route
-        path="/elderly/caregiver/:email"
+        path="/elderly/caregiver/:id"
         element={<ViewCaregiverProfile />}
       />
 

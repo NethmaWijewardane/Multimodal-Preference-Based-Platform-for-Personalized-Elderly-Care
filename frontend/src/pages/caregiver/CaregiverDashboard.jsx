@@ -37,6 +37,8 @@ function CaregiverDashboard() {
 
   const [profileImage, setProfileImage] = useState(null);
 
+  const [requests, setRequests] = useState([]);
+
   useEffect(() => {
     const fetchUser = async () => {
       const token = localStorage.getItem("token");
@@ -59,7 +61,13 @@ function CaregiverDashboard() {
         setEmail(data.email || "");
         setPhone(data.phone || "");
         setLocation(data.location || "");
-        setWorkingHours(data.workingHours || "");
+
+        setWorkingHours(
+          data.workingHours && typeof data.workingHours === "object"
+            ? `${data.workingHours.start || ""} - ${data.workingHours.end || ""}`
+            : data.workingHours || ""
+        );
+
         setExperience(data.experience || 3);
         setPatience(data.patience || 3);
         setHourlyRate(data.hourlyRate || 1000);
@@ -77,6 +85,65 @@ function CaregiverDashboard() {
 
     fetchUser();
   }, [navigate]);
+
+  const fetchRequests = async () => {
+    try {
+      const token = localStorage.getItem("token");
+
+      const res = await axios.get(
+        "http://localhost:5000/api/requests/caregiver",
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+
+      setRequests(res.data);
+    } catch (err) {
+      console.error("Fetch requests error:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "requests") {
+      fetchRequests();
+    }
+  }, [activeTab]);
+
+  const handleAccept = async (id) => {
+    try {
+      const token = localStorage.getItem("token");
+
+      await axios.put(
+        `http://localhost:5000/api/requests/${id}/accept`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+
+      fetchRequests();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDecline = async (id) => {
+    try {
+      const token = localStorage.getItem("token");
+
+      await axios.put(
+        `http://localhost:5000/api/requests/${id}/decline`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+
+      fetchRequests();
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -110,6 +177,29 @@ function CaregiverDashboard() {
     navigate("/caregiver/signin");
   };
 
+  const handleDeleteProfile = async () => {
+    try {
+      const token = localStorage.getItem("token");
+
+      if (!window.confirm("Are you sure you want to delete your profile? This cannot be undone.")) {
+        return;
+      }
+
+      await axios.delete(
+        "http://localhost:5000/api/users/delete-profile",
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      localStorage.removeItem("token");
+      alert("Profile deleted successfully");
+      navigate("/caregiver/signin");
+
+    } catch (err) {
+      console.error(err);
+      alert("Failed to delete profile");
+    }
+  };
+
   const handleSaveProfile = async () => {
     try {
       const token = localStorage.getItem("token");
@@ -134,22 +224,8 @@ function CaregiverDashboard() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      const updatedUser = res.data;
-
-      setCaregiver(updatedUser);
-      setName(updatedUser.name || "");
-      setPhone(updatedUser.phone || "");
-      setLocation(updatedUser.location || "");
-      setWorkingHours(updatedUser.workingHours || "");
-      setExperience(updatedUser.experience || 3);
-      setPatience(updatedUser.patience || 3);
-      setHourlyRate(updatedUser.hourlyRate || 1000);
-      setSelectedActivities(updatedUser.activities || []);
-      setSelectedLanguages(updatedUser.languages || []);
-      setProfileImage(updatedUser.profileImage || null);
-
+      setCaregiver(res.data);
       setEditMode(false);
-      alert("Profile updated successfully!");
 
     } catch (err) {
       console.error(err);
@@ -162,16 +238,10 @@ function CaregiverDashboard() {
   return (
     <div className="dashboard-container">
 
-      {/* ✅ FIXED HEADER ONLY */}
       <div className="dashboard-header">
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-
           <img
-            src={
-              profileImage ||
-              caregiver?.profileImage ||
-              "https://via.placeholder.com/50"
-            }
+            src={profileImage || caregiver?.profileImage || "https://via.placeholder.com/50"}
             alt="Profile"
             className="profile-image"
           />
@@ -204,57 +274,69 @@ function CaregiverDashboard() {
       </div>
 
       {activeTab === "profile" && (
-        <div className="profile-card">
+  <div className="profile-card">
+    {!editMode ? (
+      <>
+        <div style={{ lineHeight: "1.8", marginBottom: "15px" }}>
+          <h2><strong>Name:</strong> {caregiver.name}</h2>
+          <p><b><strong>📞 Phone:</strong></b> {caregiver.phone}</p>
+          <p><b><strong>📍 Location:</strong></b> {caregiver.location}</p>
+          <p><b><strong>🧠 Experience:</strong></b> {caregiver.experience}</p>
+          <p><b><strong>🕊 Patience:</strong></b> {caregiver.patience}</p>
+          <p><b><strong>💰 Hourly Rate:</strong></b> Rs. {caregiver.hourlyRate}</p>
+          <p><b><strong>🕒 Working Hours:</strong></b> {caregiver.workingHours}</p>
+          <p><b><strong>🎯 Activities:</strong></b> {caregiver.activities?.join(", ")}</p>
+        </div>
 
-          {!editMode ? (
-            <>
-              {profileImage && (
-                <img
-                  src={profileImage}
-                  alt="Profile"
-                  className="profile-image-preview"
-                />
-              )}
+        <div style={{ marginTop: "20px" }}>
+          <button
+            onClick={() => setEditMode(true)}
+            style={{
+              backgroundColor: "#add8e6",
+              border: "none",
+              padding: "8px 16px",
+              marginRight: "12px",
+              borderRadius: "6px",
+              cursor: "pointer"
+            }}
+          >
+            Edit Profile
+          </button>
 
-              <p><strong>Name:</strong> {caregiver.name}</p>
-              <p><strong>Email:</strong> {caregiver.email}</p>
-              <p><strong>Phone:</strong> {caregiver.phone}</p>
-              <p><strong>Location:</strong> {caregiver.location}</p>
-              <p><strong>Experience:</strong> {caregiver.experience} years</p>
-              <p><strong>Patience:</strong> {caregiver.patience}/5</p>
-              <p><strong>Hourly Rate:</strong> Rs. {caregiver.hourlyRate}</p>
-              <p><strong>Working Hours:</strong> {caregiver.workingHours}</p>
-              <p><strong>Activities:</strong> {caregiver.activities?.join(", ")}</p>
-              <p><strong>Languages:</strong> {caregiver.languages?.join(", ")}</p>
-
-              <button className="primary-btn" onClick={() => setEditMode(true)}>
-                Edit Profile
-              </button>
-            </>
-          ) : (
+          <button
+            onClick={handleDeleteProfile}
+            style={{
+              backgroundColor: "#f8b6b6",
+              border: "none",
+              padding: "8px 16px",
+              borderRadius: "6px",
+              cursor: "pointer"
+            }}
+          >
+            Delete Profile
+          </button>
+        </div>
+      </>
+    ) : (
             <div className="form-layout">
 
-              <div className="form-group">
-                <label>Profile Image</label>
+              <h3>Edit Profile</h3>
 
+              <div style={{ textAlign: "center", marginBottom: "20px" }}>
+                <img
+                  src={profileImage || caregiver?.profileImage || "https://via.placeholder.com/120"}
+                  alt="Profile"
+                  style={{
+                    width: "120px",
+                    height: "120px",
+                    borderRadius: "50%",
+                    objectFit: "cover"
+                  }}
+                />
+                <br />
+                <input type="file" onChange={handleImageChange} />
                 {profileImage && (
-                  <img
-                    src={profileImage}
-                    alt="Preview"
-                    className="profile-image-preview"
-                  />
-                )}
-
-                <input type="file" accept="image/*" onChange={handleImageChange} />
-
-                {profileImage && (
-                  <button
-                    type="button"
-                    className="cancel-btn"
-                    onClick={handleRemoveImage}
-                  >
-                    Remove Image
-                  </button>
+                  <button onClick={handleRemoveImage}>Remove Image</button>
                 )}
               </div>
 
@@ -266,79 +348,82 @@ function CaregiverDashboard() {
 
               <label>Location</label>
               <select value={location} onChange={(e) => setLocation(e.target.value)}>
-                <option value="">Select Location</option>
-                {sriLankaCities.map(city => (
-                  <option key={city} value={city}>{city}</option>
+                {sriLankaCities.map(c => (
+                  <option key={c}>{c}</option>
                 ))}
               </select>
 
-              <label>Working Hours</label>
-              <input
-                placeholder="e.g., 9:00 AM - 5:00 PM"
-                value={workingHours}
-                onChange={(e) => setWorkingHours(e.target.value)}
+              <label>Experience</label>
+              <select value={experience} onChange={(e) => setExperience(Number(e.target.value))}>
+                {[...Array(10)].map((_, i) => (
+                  <option key={i+1} value={i+1}>{i+1} year</option>
+                ))}
+              </select>
+
+              <label>Patience: {patience}</label>
+              <input type="range" min="1" max="5"
+                value={patience}
+                onChange={(e) => setPatience(Number(e.target.value))}
               />
 
-              <div className="slider-group">
-                <label>Experience: {experience} years</label>
-                <input type="range" min="1" max="10"
-                  value={experience}
-                  onChange={(e) => setExperience(Number(e.target.value))}
-                />
-              </div>
+              <label>Hourly Rate: Rs. {hourlyRate}</label>
+              <input type="range" min="500" max="3000"
+                value={hourlyRate}
+                onChange={(e) => setHourlyRate(Number(e.target.value))}
+              />
 
-              <div className="slider-group">
-                <label>Patience Level: {patience}</label>
-                <input type="range" min="1" max="5"
-                  value={patience}
-                  onChange={(e) => setPatience(Number(e.target.value))}
-                />
-              </div>
-
-              <div className="slider-group">
-                <label>Hourly Rate: Rs. {hourlyRate}</label>
-                <input type="range" min="500" max="2000" step="100"
-                  value={hourlyRate}
-                  onChange={(e) => setHourlyRate(Number(e.target.value))}
-                />
-              </div>
+              <label>Working Hours</label>
+              <input value={workingHours} onChange={(e) => setWorkingHours(e.target.value)} />
 
               <label>Activities</label>
-              <div className="checkbox-group">
-                {activitiesList.map(act => (
-                  <label key={act}>
-                    <input
-                      type="checkbox"
-                      checked={selectedActivities.includes(act)}
-                      onChange={() => toggleActivity(act)}
-                    />
-                    {act}
-                  </label>
-                ))}
-              </div>
+              {activitiesList.map(a => (
+                <label key={a}>
+                  <input
+                    type="checkbox"
+                    checked={selectedActivities.includes(a)}
+                    onChange={() => toggleActivity(a)}
+                  />
+                  {a}
+                </label>
+              ))}
 
               <label>Languages</label>
-              <div className="checkbox-group">
-                {languagesList.map(lang => (
-                  <label key={lang}>
-                    <input
-                      type="checkbox"
-                      checked={selectedLanguages.includes(lang)}
-                      onChange={() => toggleLanguage(lang)}
-                    />
-                    {lang}
-                  </label>
-                ))}
-              </div>
+              {languagesList.map(l => (
+                <label key={l}>
+                  <input
+                    type="checkbox"
+                    checked={selectedLanguages.includes(l)}
+                    onChange={() => toggleLanguage(l)}
+                  />
+                  {l}
+                </label>
+              ))}
 
-              <div className="form-buttons">
-                <button className="save-btn" onClick={handleSaveProfile}>
-                  Save
-                </button>
-                <button className="cancel-btn" onClick={() => setEditMode(false)}>
-                  Cancel
-                </button>
-              </div>
+              <button
+                onClick={handleSaveProfile}
+                style={{
+                  backgroundColor: "#cce6ff",
+                  border: "none",
+                  padding: "8px 14px",
+                  borderRadius: "6px",
+                  cursor: "pointer"
+                }}
+              >
+                Save
+              </button>
+
+              <button
+                onClick={() => setEditMode(false)}
+                style={{
+                  backgroundColor: "#ffd6d6",
+                  border: "none",
+                  padding: "8px 14px",
+                  borderRadius: "6px",
+                  cursor: "pointer"
+                }}
+              >
+                Cancel
+              </button>
 
             </div>
           )}
@@ -348,7 +433,46 @@ function CaregiverDashboard() {
       {activeTab === "requests" && (
         <div className="profile-card">
           <h3>Requests</h3>
-          <p>Requests will be loaded from backend.</p>
+
+          {requests.length === 0 ? (
+            <p>No requests found</p>
+          ) : (
+            requests.map((req) => (
+              <div key={req._id} style={{ padding: "10px", borderBottom: "1px solid #ddd" }}>
+                <p><strong>Service Number:</strong> {req.serviceNumber}</p>
+                <p><strong>Date:</strong> {req.requestDate}</p>
+                <p><strong>Time:</strong> {req.requestTime}</p>
+                <p><strong>Status:</strong> {req.status}</p>
+
+                <button
+                  onClick={() => handleAccept(req._id)}
+                  style={{
+                    backgroundColor: "#add8e6",
+                    border: "none",
+                    padding: "6px 12px",
+                    marginRight: "10px",
+                    borderRadius: "5px",
+                    cursor: "pointer"
+                  }}
+                >
+                  Accept
+                </button>
+
+                <button
+                  onClick={() => handleDecline(req._id)}
+                  style={{
+                    backgroundColor: "#f8b6b6",
+                    border: "none",
+                    padding: "6px 12px",
+                    borderRadius: "5px",
+                    cursor: "pointer"
+                  }}
+                >
+                  Decline
+                </button>
+              </div>
+            ))
+          )}
         </div>
       )}
 

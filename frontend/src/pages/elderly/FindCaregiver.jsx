@@ -29,6 +29,25 @@ function FindCaregiver() {
   const [maxRate, setMaxRate] = useState(2000);
   const [minPatience, setMinPatience] = useState(1);
 
+  const [requests, setRequests] = useState([]);
+
+  const formatWorkingHours = (wh) => {
+    if (!wh) return { start: "", end: "" };
+
+    if (typeof wh === "string") {
+      const parts = wh.split("-");
+      return {
+        start: parts[0]?.trim() || "",
+        end: parts[1]?.trim() || ""
+      };
+    }
+
+    return {
+      start: wh.start || "",
+      end: wh.end || ""
+    };
+  };
+
   const loadCaregivers = async () => {
     try {
       const token = localStorage.getItem("token");
@@ -51,7 +70,8 @@ function FindCaregiver() {
         languages: cg.languages || [],
         activities: cg.activities || [],
         experience: cg.experience || 0,
-        patience: cg.patience || 0
+        patience: cg.patience || 0,
+        workingHours: formatWorkingHours(cg.workingHours)
       }));
 
       setCaregivers([...enriched]);
@@ -136,6 +156,51 @@ function FindCaregiver() {
     );
   };
 
+const handleSendRequest = async (cg) => {
+  const now = new Date();
+
+  try {
+    const token = localStorage.getItem("token");
+
+    const res = await fetch("http://localhost:5000/api/requests", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        caregiverId: cg._id || cg.id,
+        serviceNumber: requests.length + 1,
+        requestDate: now.toLocaleDateString(),
+        requestTime: now.toLocaleTimeString()
+      })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.message || "Failed to send request");
+    }
+
+    // ONLY after DB success, update UI
+    const newRequest = {
+      serviceNumber: data.serviceNumber || requests.length + 1,
+      name: cg.name,
+      status: data.status || "pending",
+      date: data.requestDate || now.toLocaleDateString(),
+      time: data.requestTime || now.toLocaleTimeString()
+    };
+
+    setRequests((prev) => [...prev, newRequest]);
+
+    alert(`Request sent to ${cg.name}`);
+
+  } catch (err) {
+    console.error("❌ Request error:", err);
+    alert("Failed to send request. Check backend.");
+  }
+};
+
   const handleLogout = () => {
     localStorage.removeItem("elderlyUser");
     localStorage.removeItem("token");
@@ -166,8 +231,7 @@ function FindCaregiver() {
         <div style={{ border: "1px solid #ddd", padding: 12, borderRadius: 10 }}>
           <h3>Filters</h3>
 
-          {/* 💰 MAX RATE SLIDER (FIXED) */}
-          <p><b>💰 Max Rate (Rs {maxRate})</b></p>
+          <p><b>💰Max Rate (Rs {maxRate})</b></p>
           <input
             type="range"
             min="500"
@@ -178,7 +242,6 @@ function FindCaregiver() {
             style={{ width: "100%" }}
           />
 
-          {/* 🕊 MIN PATIENCE SLIDER */}
           <p style={{ marginTop: 15 }}>
             <b>🕊 Min Patience ({minPatience}/5)</b>
           </p>
@@ -192,7 +255,7 @@ function FindCaregiver() {
             style={{ width: "100%" }}
           />
 
-          <p><b>Activities</b></p>
+          <p><b>🎯Activities</b></p>
           {activitiesList.map((act) => (
             <div key={act}>
               <input type="checkbox"
@@ -201,7 +264,7 @@ function FindCaregiver() {
             </div>
           ))}
 
-          <p><b>Languages</b></p>
+          <p><b>🗣 Languages</b></p>
           {["Sinhala","English","Tamil"].map((lang) => (
             <div key={lang}>
               <input type="checkbox"
@@ -210,7 +273,7 @@ function FindCaregiver() {
             </div>
           ))}
 
-          <p><b>Locations</b></p>
+          <p><b>📍Locations</b></p>
           {sriLankaCities.map((city) => (
             <div key={city}>
               <input type="checkbox"
@@ -233,18 +296,76 @@ function FindCaregiver() {
               borderRadius: 10
             }}>
               <h3>👤 {cg.name}</h3>
-              <p>📍 {cg.location}</p>
-              <p>💰 Rs {cg.rate}/hr</p>
+              <p>📍Location: {cg.location}</p>
+              <p>📞 Phone: {cg.phone || "N/A"}</p>
+              <p>💰 Hourly Rate: Rs {cg.rate}/hr</p>
               <p>🧠 Experience: {cg.experience}</p>
               <p>🕊 Patience: {cg.patience}/5</p>
               <p>🗣 Languages: {cg.languages.join(", ") || "N/A"}</p>
               <p>🎯 Activities: {cg.activities.join(", ") || "N/A"}</p>
+
+              <p>
+                🕒 Working Hours:{" "}
+                {cg.workingHours?.start || cg.workingHours?.end
+                  ? `${cg.workingHours?.start || "--"} - ${cg.workingHours?.end || "--"}`
+                  : "N/A"}
+              </p>
+
+              <div style={{ display: "flex", gap: "10px", marginTop: 10 }}>
+
+                <button
+                  onClick={() => navigate(`/elderly/caregiver/${cg._id || cg.id}`)}
+                  style={{
+                    padding: "8px 12px",
+                    cursor: "pointer",
+                    backgroundColor: "#d8b4fe",
+                    border: "none",
+                    borderRadius: "5px"
+                  }}
+                >
+                  View Profile
+                </button>
+
+                <button
+                  onClick={() => handleSendRequest(cg)}
+                  style={{
+                    padding: "8px 12px",
+                    cursor: "pointer",
+                    backgroundColor: "#90ee90",
+                    border: "none",
+                    borderRadius: "5px"
+                  }}
+                >
+                  Send Request
+                </button>
+
+              </div>
             </div>
           ))}
         </div>
 
+        {/* SERVICE HISTORY */}
         <div>
           <h3>Service History</h3>
+
+          {requests.length === 0 ? (
+            <p>No requests yet</p>
+          ) : (
+            requests.map((req, index) => (
+              <div key={index} style={{
+                border: "1px solid #ccc",
+                padding: 10,
+                marginBottom: 10,
+                borderRadius: 8
+              }}>
+                <p><b>Service Number:</b> {req.serviceNumber}</p>
+                <p><b>Caregiver's Name:</b> {req.name}</p>
+                <p><b>Date:</b> {req.date}</p>
+                <p><b>Time:</b> {req.time}</p>
+                <p><b>Status:</b> <span style={{ color: "orange" }}>{req.status}</span></p>
+              </div>
+            ))
+          )}
         </div>
 
       </div>
