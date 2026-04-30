@@ -16,7 +16,6 @@ export const requireAuth = (req, res, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // 🔥 FIX: normalize user object (IMPORTANT)
     req.user = {
       id: decoded.id || decoded._id,
       role: decoded.role

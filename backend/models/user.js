@@ -48,7 +48,6 @@ const userSchema = new mongoose.Schema({
     default: 0 
   },
 
-  // ✅ IMPORTANT: matches frontend usage
   hourlyRate: { 
     type: Number, 
     default: 0 
@@ -59,7 +58,7 @@ const userSchema = new mongoose.Schema({
     default: "",
     validate: {
       validator: function (v) {
-        if (!v) return true; // allow empty
+        if (!v) return true; 
         return /^0\d{9}$/.test(v);
       },
       message: (props) =>
@@ -72,7 +71,6 @@ const userSchema = new mongoose.Schema({
     end: { type: String, default: "" },
   },
 
-  // ✅ IMPORTANT: matches frontend (profileImage not profilePic)
   profileImage: { 
     type: String, 
     default: null 

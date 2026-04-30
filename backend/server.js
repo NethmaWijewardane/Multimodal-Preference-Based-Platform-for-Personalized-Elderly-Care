@@ -42,8 +42,6 @@ mongoose.connect(process.env.MONGO_URI)
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/requests", requestRoutes);
-
-// 🔥 FIXED ROUTE (IMPORTANT)
 app.use("/api/feedback", feedbackRoutes);
 
 // ===============================
