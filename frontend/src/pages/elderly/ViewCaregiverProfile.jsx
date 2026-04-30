@@ -2,67 +2,97 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 function ViewCaregiverProfile() {
-  const { email } = useParams();
+  const { id } = useParams();
   const navigate = useNavigate();
 
   const elderlyUser = JSON.parse(localStorage.getItem("elderlyUser")) || {};
   const [caregiver, setCaregiver] = useState(null);
   const [requestStatus, setRequestStatus] = useState(null);
+  const [feedbacks, setFeedbacks] = useState([]);
+
+  const [requests, setRequests] = useState([]);
 
   useEffect(() => {
-    const caregivers =
-      JSON.parse(localStorage.getItem("caregivers")) || [];
-    const found = caregivers.find(cg => cg.email === email);
+    const fetchCaregiver = async () => {
+      try {
+        const token = localStorage.getItem("token");
 
-    if (!found) {
-      navigate(-1);
-      return;
-    }
+        const res = await fetch(
+          `http://localhost:5000/api/users/caregivers/${id}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
 
-    setCaregiver(found);
+        if (!res.ok) {
+          navigate(-1);
+          return;
+        }
 
-    const allRequests =
-      JSON.parse(localStorage.getItem("caregiverRequests")) || {};
+        const data = await res.json();
+        setCaregiver(data);
 
-    const caregiverRequests = allRequests[email] || [];
-    const myRequest = caregiverRequests.find(
-      r => r.email === elderlyUser.email
-    );
-
-    setRequestStatus(myRequest ? myRequest.status : null);
-  }, [email, elderlyUser.email, navigate]);
-
-  const sendRequest = () => {
-    const allRequests =
-      JSON.parse(localStorage.getItem("caregiverRequests")) || {};
-
-    if (!allRequests[caregiver.email]) {
-      allRequests[caregiver.email] = [];
-    }
-
-    const existing = allRequests[caregiver.email].find(
-      r => r.email === elderlyUser.email
-    );
-
-    if (!existing || existing.status === "declined") {
-      if (existing) {
-        existing.status = "pending";
-        existing.sentAt = new Date().toISOString();
-      } else {
-        allRequests[caregiver.email].push({
-          name: elderlyUser.name,
-          email: elderlyUser.email,
-          status: "pending",
-          sentAt: new Date().toISOString(),
+        const reqRes = await fetch("http://localhost:5000/api/requests/my", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         });
+
+        const reqData = await reqRes.json();
+
+        setRequests(reqData);
+
+        const myRequest = reqData.find(
+          (r) => r.caregiver?._id === data._id
+        );
+
+        setRequestStatus(myRequest ? myRequest.status : null);
+
+        const allFeedbacks =
+          JSON.parse(localStorage.getItem("feedbacks")) || {};
+
+        setFeedbacks(allFeedbacks[data.email] || []);
+
+      } catch (err) {
+        console.error("Error:", err);
+        navigate(-1);
+      }
+    };
+
+    fetchCaregiver();
+  }, [id, navigate]);
+
+  const sendRequest = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const now = new Date();
+
+      const res = await fetch("http://localhost:5000/api/requests", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          caregiverId: caregiver._id,
+          serviceNumber: requests.length + 1,
+          requestDate: now.toLocaleDateString(),
+          requestTime: now.toLocaleTimeString(),
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message);
       }
 
-      localStorage.setItem(
-        "caregiverRequests",
-        JSON.stringify(allRequests)
-      );
-
+      setRequests((prev) => [...prev, data]);
       setRequestStatus("pending");
+
+    } catch (err) {
+      console.error("Request failed:", err);
+      alert("Failed to send request");
     }
   };
 
@@ -80,53 +110,112 @@ function ViewCaregiverProfile() {
           borderRadius: "12px",
         }}
       >
-        <h2>{caregiver.name}</h2>
+        <h2> 👤 {caregiver.name}</h2>
 
-        {caregiver.profilePic && (
-          <img
-            src={caregiver.profilePic}
-            alt="Profile"
-            style={{
-              width: "120px",
-              height: "120px",
-              borderRadius: "50%",
-              objectFit: "cover",
-              marginBottom: "16px",
-            }}
-          />
-        )}
+        <p><strong> 📧 Email:</strong> {caregiver.email}</p>
+        <p><strong> 📞 Phone:</strong> {caregiver.phone || "N/A"}</p>
+        <p><strong> 📍 Location:</strong> {caregiver.location}</p>
+        <p><strong> 🧠 Experience:</strong> {caregiver.experience || "N/A"}</p>
+        <p><strong> 💰 Hourly Rate:</strong> Rs. {caregiver.hourlyRate}/hr</p>
 
-        <p><strong>Email:</strong> {caregiver.email}</p>
-        <p><strong>Location:</strong> {caregiver.location}</p>
-        <p><strong>Experience:</strong> {caregiver.experience || "N/A"}</p>
-        <p><strong>Hourly Rate:</strong> Rs. {caregiver.rate}/hr</p>
         <p>
-          <strong>Languages:</strong>{" "}
-          {caregiver.languages?.join(", ") || "N/A"}
-        </p>
-        <p>
-          <strong>Activities:</strong>{" "}
-          {caregiver.activities?.join(", ") || "N/A"}
+          <strong> 🗣 Languages:</strong>{" "}
+          {caregiver.languages?.length
+            ? caregiver.languages.join(", ")
+            : "N/A"}
         </p>
 
-        <div style={{ marginTop: "20px" }}>
-          {requestStatus ? (
-            <strong
-              style={{
-                color:
-                  requestStatus === "accepted"
-                    ? "green"
-                    : requestStatus === "declined"
-                    ? "red"
-                    : "#f39c12",
-              }}
-            >
-              REQUEST {requestStatus.toUpperCase()}
-            </strong>
-          ) : (
-            <button onClick={sendRequest}>Send Request</button>
-          )}
+        <p>
+          <strong> 🎯 Activities:</strong>{" "}
+          {caregiver.activities?.length
+            ? caregiver.activities.join(", ")
+            : "N/A"}
+        </p>
+
+        <p>
+          <strong> 🕒 Working Hours:</strong>{" "}
+          {caregiver.workingHours &&
+          (caregiver.workingHours.start?.trim() ||
+            caregiver.workingHours.end?.trim())
+            ? `${caregiver.workingHours.start || "--"} - ${
+                caregiver.workingHours.end || "--"
+              }`
+            : "N/A"}
+        </p>
+      </div>
+
+      {/* REQUESTS */}
+      <div
+        style={{
+          marginTop: "20px",
+          padding: "20px",
+          border: "1px solid #ddd",
+          borderRadius: "10px",
+        }}
+      >
+        <h3>Requests</h3>
+
+        <div style={{ marginTop: "15px" }}>
+          {requests
+            .filter((r) => r.caregiver?._id === caregiver._id)
+            .map((req, index) => (
+              <div
+                key={index}
+                style={{
+                  border: "1px solid #ccc",
+                  padding: 10,
+                  marginTop: 10,
+                  borderRadius: 8,
+                }}
+              >
+                <p><b>Service Number:</b> {req.serviceNumber}</p>
+                <p><b>Date:</b> {req.requestDate}</p>
+                <p><b>Time:</b> {req.requestTime}</p>
+
+                <p>
+                  <b>Status:</b>{" "}
+                  <span
+                    style={{
+                      color:
+                        req.status === "accepted"
+                          ? "green"
+                          : req.status === "declined"
+                          ? "red"
+                          : "darkgoldenrod",
+                      fontWeight: "bold",
+                      textTransform: "capitalize",
+                    }}
+                  >
+                    {req.status}
+                  </span>
+                </p>
+              </div>
+            ))}
         </div>
+      </div>
+
+      {/* FEEDBACKS */}
+      <div
+        style={{
+          marginTop: "20px",
+          padding: "20px",
+          border: "1px solid #ddd",
+          borderRadius: "10px",
+        }}
+      >
+        <h3>Feedbacks</h3>
+
+        {feedbacks.length === 0 ? (
+          <p>No feedback available</p>
+        ) : (
+          feedbacks.map((fb, i) => (
+            <div key={i} style={{ marginBottom: "10px" }}>
+              <strong>{fb.name}</strong>
+              <p>{fb.comment}</p>
+              <hr />
+            </div>
+          ))
+        )}
       </div>
     </div>
   );
