@@ -44,9 +44,9 @@ router.post("/signup", async (req, res) => {
 /* ---------------- SIGNIN ---------------- */
 router.post("/signin", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, role } = req.body;
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email, role });
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
@@ -58,7 +58,6 @@ router.post("/signin", async (req, res) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // IMPORTANT: JWT MUST contain id
     const token = jwt.sign(
       {
         id: user._id,
@@ -85,7 +84,6 @@ router.post("/signin", async (req, res) => {
   }
 });
 
-/* ---------------- ME (FIXED) ---------------- */
 router.get("/me", requireAuth, async (req, res) => {
   try {
     console.log("USER FROM TOKEN:", req.user);
