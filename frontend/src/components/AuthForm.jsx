@@ -67,11 +67,16 @@ function AuthForm({ type = "signin", defaultRole = "elderly", onSuccess }) {
 
         console.log("SIGNUP SUCCESS:", response.data);
 
-        setSuccess("Account created successfully! Redirecting...");
+        setSuccess("Account created successfully!");
 
+        // ✅ FIXED FLOW: always navigate reliably
         setTimeout(() => {
-          navigate(`/${activeTab}/signin`);
-        }, 1000);
+          if (onSuccess) {
+            onSuccess(response.data);
+          } else {
+            navigate(`/${activeTab}/signin`);
+          }
+        }, 800);
 
         return;
       }
@@ -81,13 +86,13 @@ function AuthForm({ type = "signin", defaultRole = "elderly", onSuccess }) {
         "http://localhost:5000/api/auth/signin",
         {
           email,
-          password
+          password,
+          role: activeTab
         }
       );
 
       console.log("LOGIN RESPONSE:", response.data);
 
-      // ---------------- SAFE TOKEN HANDLING ----------------
       const token = response.data?.token;
 
       if (!token) {
@@ -97,10 +102,18 @@ function AuthForm({ type = "signin", defaultRole = "elderly", onSuccess }) {
 
       localStorage.setItem("token", token);
 
+      // optional user storage (if backend sends user)
+      if (response.data?.user) {
+        localStorage.setItem("elderlyUser", JSON.stringify(response.data.user));
+      }
+
       setSuccess("Login successful!");
 
-      // pass data to parent (dashboard)
-      if (onSuccess) onSuccess(response.data);
+      if (onSuccess) {
+        onSuccess(response.data);
+      } else {
+        navigate("/elderly/find-caregiver");
+      }
 
     } catch (err) {
       console.error("AUTH ERROR:", err.response?.data || err.message);

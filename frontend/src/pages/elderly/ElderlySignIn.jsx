@@ -7,26 +7,30 @@ function ElderlySignIn() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const elderlyUser = JSON.parse(localStorage.getItem("elderlyUser"));
-    if (elderlyUser?.token) {
+    const user = JSON.parse(localStorage.getItem("user"));
+    
+    if (user?.token && user?.role === "elderly") {
       navigate("/elderly/find-caregiver");
     }
   }, [navigate]);
 
   const handleLoginSuccess = (data) => {
-    // ✅ FIX: Flatten structure
     const formattedUser = {
       token: data.token,
-      ...data.user
+      ...data.user,
+      role: "elderly"
     };
 
-    localStorage.setItem("elderlyUser", JSON.stringify(formattedUser));
+    localStorage.setItem("user", JSON.stringify(formattedUser));
 
     navigate("/elderly/find-caregiver");
   };
 
   return (
-    <AuthLayout title="Sign In" subtitle="Welcome back! Please sign in to continue.">
+    <AuthLayout
+      title="Sign In"
+      subtitle="Welcome back! Please sign in to continue."
+    >
       <AuthForm
         type="signin"
         defaultRole="elderly"

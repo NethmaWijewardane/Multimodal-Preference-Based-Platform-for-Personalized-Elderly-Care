@@ -31,6 +31,33 @@ function FindCaregiver() {
 
   const [requests, setRequests] = useState([]);
 
+  // ✅ FIXED ENDPOINT HERE
+  const loadRequests = async () => {
+    try {
+      const token = localStorage.getItem("token");
+
+      if (!token) return;
+
+      const res = await fetch("http://localhost:5000/api/requests/my", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      const data = await res.json();
+
+      // 🔥 FIX: prevent crash when backend returns 401 object
+      if (!Array.isArray(data)) {
+        console.error("Requests API error:", data);
+        setRequests([]);
+        return;
+      }
+
+      setRequests(data);
+
+    } catch (err) {
+      console.error("❌ Error loading requests:", err);
+    }
+  };
+
   const formatWorkingHours = (wh) => {
     if (!wh) return { start: "", end: "" };
 
@@ -52,6 +79,8 @@ function FindCaregiver() {
     try {
       const token = localStorage.getItem("token");
 
+      if (!token) return;
+
       const res = await fetch(
         "http://localhost:5000/api/users/caregivers",
         {
@@ -61,6 +90,14 @@ function FindCaregiver() {
       );
 
       const data = await res.json();
+
+      // 🔥 FIX: prevent crash when backend returns 401 object
+      if (!Array.isArray(data)) {
+        console.error("Caregivers API error:", data);
+        setCaregivers([]);
+        setFilteredCaregivers([]);
+        return;
+      }
 
       const enriched = data.map((cg) => ({
         ...cg,
@@ -93,9 +130,17 @@ function FindCaregiver() {
     }
 
     loadCaregivers();
+    loadRequests();
 
-    const interval = setInterval(loadCaregivers, 3000);
-    const onFocus = () => loadCaregivers();
+    const interval = setInterval(() => {
+      loadCaregivers();
+      loadRequests();
+    }, 3000);
+
+    const onFocus = () => {
+      loadCaregivers();
+      loadRequests();
+    };
 
     window.addEventListener("focus", onFocus);
 
@@ -156,50 +201,51 @@ function FindCaregiver() {
     );
   };
 
-const handleSendRequest = async (cg) => {
-  const now = new Date();
+  const handleSendRequest = async (cg) => {
+    const now = new Date();
 
-  try {
-    const token = localStorage.getItem("token");
+    try {
+      const token = localStorage.getItem("token");
 
-    const res = await fetch("http://localhost:5000/api/requests", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        caregiverId: cg._id || cg.id,
-        serviceNumber: requests.length + 1,
-        requestDate: now.toLocaleDateString(),
-        requestTime: now.toLocaleTimeString()
-      })
-    });
+      if (!token) return;
 
-    const data = await res.json();
+      const res = await fetch("http://localhost:5000/api/requests", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          caregiverId: cg._id || cg.id,
+          serviceNumber: requests.length + 1,
+          requestDate: now.toLocaleDateString(),
+          requestTime: now.toLocaleTimeString()
+        })
+      });
 
-    if (!res.ok) {
-      throw new Error(data.message || "Failed to send request");
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to send request");
+      }
+
+      const newRequest = {
+        serviceNumber: data.serviceNumber || requests.length + 1,
+        name: cg.name,
+        status: data.status || "pending",
+        date: data.requestDate || now.toLocaleDateString(),
+        time: data.requestTime || now.toLocaleTimeString()
+      };
+
+      setRequests((prev) => [...prev, newRequest]);
+
+      alert(`Request sent to ${cg.name}`);
+
+    } catch (err) {
+      console.error("❌ Request error:", err);
+      alert("Failed to send request. Check backend.");
     }
-
-    // ONLY after DB success, update UI
-    const newRequest = {
-      serviceNumber: data.serviceNumber || requests.length + 1,
-      name: cg.name,
-      status: data.status || "pending",
-      date: data.requestDate || now.toLocaleDateString(),
-      time: data.requestTime || now.toLocaleTimeString()
-    };
-
-    setRequests((prev) => [...prev, newRequest]);
-
-    alert(`Request sent to ${cg.name}`);
-
-  } catch (err) {
-    console.error("❌ Request error:", err);
-    alert("Failed to send request. Check backend.");
-  }
-};
+  };
 
   const handleLogout = () => {
     localStorage.removeItem("elderlyUser");
@@ -245,6 +291,7 @@ const handleSendRequest = async (cg) => {
           <p style={{ marginTop: 15 }}>
             <b>🕊 Min Patience ({minPatience}/5)</b>
           </p>
+
           <input
             type="range"
             min="1"
@@ -281,7 +328,6 @@ const handleSendRequest = async (cg) => {
               /> {city}
             </div>
           ))}
-
         </div>
 
         {/* CAREGIVERS */}
@@ -296,6 +342,7 @@ const handleSendRequest = async (cg) => {
               borderRadius: 10
             }}>
               <h3>👤 {cg.name}</h3>
+
               <p>📍Location: {cg.location}</p>
               <p>📞 Phone: {cg.phone || "N/A"}</p>
               <p>💰 Hourly Rate: Rs {cg.rate}/hr</p>
@@ -303,13 +350,6 @@ const handleSendRequest = async (cg) => {
               <p>🕊 Patience: {cg.patience}/5</p>
               <p>🗣 Languages: {cg.languages.join(", ") || "N/A"}</p>
               <p>🎯 Activities: {cg.activities.join(", ") || "N/A"}</p>
-
-              <p>
-                🕒 Working Hours:{" "}
-                {cg.workingHours?.start || cg.workingHours?.end
-                  ? `${cg.workingHours?.start || "--"} - ${cg.workingHours?.end || "--"}`
-                  : "N/A"}
-              </p>
 
               <div style={{ display: "flex", gap: "10px", marginTop: 10 }}>
 
@@ -358,11 +398,24 @@ const handleSendRequest = async (cg) => {
                 marginBottom: 10,
                 borderRadius: 8
               }}>
-                <p><b>Service Number:</b> {req.serviceNumber}</p>
-                <p><b>Caregiver's Name:</b> {req.name}</p>
-                <p><b>Date:</b> {req.date}</p>
-                <p><b>Time:</b> {req.time}</p>
-                <p><b>Status:</b> <span style={{ color: "orange" }}>{req.status}</span></p>
+                <p><b>Service Number: </b> {req.serviceNumber}</p>
+
+                <p><b>Caregiver's Name: </b> 
+                  {req.caregiverName || req.caregiver?.name || "N/A"}
+                </p>
+
+                <p><b>Date: </b> 
+                  {req.createdAt ? new Date(req.createdAt).toLocaleDateString() : "N/A"}
+                </p>
+
+                <p><b>Time: </b> 
+                  {req.createdAt ? new Date(req.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "N/A"}
+                </p>
+
+                <p><b>Status: </b> 
+                  <span style={{ color: "orange" }}>{req.status}</span>
+                </p>
+
               </div>
             ))
           )}

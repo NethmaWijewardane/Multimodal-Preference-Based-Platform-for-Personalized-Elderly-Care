@@ -7,26 +7,30 @@ function CaregiverSignIn() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const loggedIn = JSON.parse(localStorage.getItem("loggedInCaregiver"));
-    if (loggedIn) {
+    const user = JSON.parse(localStorage.getItem("user"));
+
+    if (user?.token && user?.role === "caregiver") {
       navigate("/caregiver/dashboard");
     }
   }, [navigate]);
 
   const handleLoginSuccess = (userData) => {
-    localStorage.setItem(
-      "loggedInCaregiver",
-      JSON.stringify({
-        ...userData,
-        activities: userData.activities || [],
-      })
-    );
+    const formattedUser = {
+      ...userData,
+      activities: userData.activities || [],
+      role: "caregiver"
+    };
+
+    localStorage.setItem("user", JSON.stringify(formattedUser));
 
     navigate("/caregiver/dashboard");
   };
 
   return (
-    <AuthLayout title="Sign In" subtitle="Welcome back! Please sign in to continue.">
+    <AuthLayout
+      title="Sign In"
+      subtitle="Welcome back! Please sign in to continue."
+    >
       <AuthForm
         type="signin"
         defaultRole="caregiver"

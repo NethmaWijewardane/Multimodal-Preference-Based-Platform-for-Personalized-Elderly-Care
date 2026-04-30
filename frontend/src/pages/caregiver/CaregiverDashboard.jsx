@@ -201,37 +201,66 @@ function CaregiverDashboard() {
   };
 
   const handleSaveProfile = async () => {
-    try {
-      const token = localStorage.getItem("token");
+  try {
+    const token = localStorage.getItem("token");
 
-      const updated = {
-        name,
-        email,
-        phone,
-        location,
-        workingHours,
-        experience,
-        patience,
-        hourlyRate,
-        activities: selectedActivities,
-        languages: selectedLanguages,
-        profileImage
-      };
+    const updated = {
+      name,
+      email,
+      phone,
+      location,
+      workingHours: {
+        start: workingHours.split("-")[0]?.trim() || "",
+        end: workingHours.split("-")[1]?.trim() || ""
+      },
+      experience,
+      patience,
+      hourlyRate,
+      activities: selectedActivities,
+      languages: selectedLanguages,
+      profileImage
+    };
 
-      const res = await axios.put(
-        "http://localhost:5000/api/users/update-profile",
-        updated,
-        { headers: { Authorization: `Bearer ${token}` } }
+    const res = await axios.put(
+      "http://localhost:5000/api/users/update-profile",
+      updated,
+      {
+        headers: { Authorization: `Bearer ${token}` }
+      }
+    );
+
+    console.log("UPDATE RESPONSE:", res.data);
+
+    // ✅ FIX: handle different backend responses safely
+    const updatedUser =
+      res.data?.user ||
+      res.data?.updatedUser ||
+      res.data;
+
+    // if backend didn't return user object, refetch it
+    if (!updatedUser || !updatedUser.name) {
+      const refresh = await axios.get(
+        "http://localhost:5000/api/auth/me",
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
       );
-
-      setCaregiver(res.data);
-      setEditMode(false);
-
-    } catch (err) {
-      console.error(err);
-      alert("Failed to update profile");
+      setCaregiver(refresh.data);
+    } else {
+      setCaregiver(updatedUser);
     }
-  };
+
+    setEditMode(false);
+
+  } catch (err) {
+    console.error("UPDATE ERROR:", err.response?.data || err.message);
+
+    alert(
+      err.response?.data?.message ||
+      "Failed to update profile"
+    );
+  }
+};
 
   if (!caregiver) return <p>Loading dashboard...</p>;
 
@@ -282,10 +311,16 @@ function CaregiverDashboard() {
           <p><b><strong>📞 Phone:</strong></b> {caregiver.phone}</p>
           <p><b><strong>📍 Location:</strong></b> {caregiver.location}</p>
           <p><b><strong>🧠 Experience:</strong></b> {caregiver.experience}</p>
+          <p><b><strong>🗣 Languages:</strong></b> {caregiver.languages?.join(", ")}</p>
           <p><b><strong>🕊 Patience:</strong></b> {caregiver.patience}</p>
           <p><b><strong>💰 Hourly Rate:</strong></b> Rs. {caregiver.hourlyRate}</p>
-          <p><b><strong>🕒 Working Hours:</strong></b> {caregiver.workingHours}</p>
           <p><b><strong>🎯 Activities:</strong></b> {caregiver.activities?.join(", ")}</p>
+          <p>
+            <b><strong>🕒 Working Hours:</strong></b>{" "}
+            {typeof caregiver.workingHours === "object"
+              ? `${caregiver.workingHours?.start || ""} - ${caregiver.workingHours?.end || ""}`
+              : caregiver.workingHours}
+          </p>
         </div>
 
         <div style={{ marginTop: "20px" }}>
