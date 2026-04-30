@@ -231,13 +231,11 @@ function CaregiverDashboard() {
 
     console.log("UPDATE RESPONSE:", res.data);
 
-    // ✅ FIX: handle different backend responses safely
     const updatedUser =
       res.data?.user ||
       res.data?.updatedUser ||
       res.data;
 
-    // if backend didn't return user object, refetch it
     if (!updatedUser || !updatedUser.name) {
       const refresh = await axios.get(
         "http://localhost:5000/api/auth/me",

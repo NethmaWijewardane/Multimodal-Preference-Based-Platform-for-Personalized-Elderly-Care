@@ -91,7 +91,7 @@ input[type="range"] {
   cursor: pointer;
 }
 
-/* CHECKBOX GROUP (matches wireframe layout) */
+/* CHECKBOX GROUP  */
 .checkbox-group {
   display: flex;
   flex-wrap: wrap;
@@ -106,7 +106,6 @@ input[type="range"] {
   font-size: 14px;
 }
 
-/* OPTIONAL GRID VERSION (if needed elsewhere) */
 .checkbox-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

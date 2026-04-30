@@ -31,7 +31,6 @@ function FindCaregiver() {
 
   const [requests, setRequests] = useState([]);
 
-  // ✅ FIXED ENDPOINT HERE
   const loadRequests = async () => {
     try {
       const token = localStorage.getItem("token");
@@ -44,7 +43,6 @@ function FindCaregiver() {
 
       const data = await res.json();
 
-      // 🔥 FIX: prevent crash when backend returns 401 object
       if (!Array.isArray(data)) {
         console.error("Requests API error:", data);
         setRequests([]);
@@ -91,7 +89,6 @@ function FindCaregiver() {
 
       const data = await res.json();
 
-      // 🔥 FIX: prevent crash when backend returns 401 object
       if (!Array.isArray(data)) {
         console.error("Caregivers API error:", data);
         setCaregivers([]);

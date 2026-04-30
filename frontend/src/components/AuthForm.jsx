@@ -69,7 +69,6 @@ function AuthForm({ type = "signin", defaultRole = "elderly", onSuccess }) {
 
         setSuccess("Account created successfully!");
 
-        // ✅ FIXED FLOW: always navigate reliably
         setTimeout(() => {
           if (onSuccess) {
             onSuccess(response.data);
@@ -102,7 +101,6 @@ function AuthForm({ type = "signin", defaultRole = "elderly", onSuccess }) {
 
       localStorage.setItem("token", token);
 
-      // optional user storage (if backend sends user)
       if (response.data?.user) {
         localStorage.setItem("elderlyUser", JSON.stringify(response.data.user));
       }
