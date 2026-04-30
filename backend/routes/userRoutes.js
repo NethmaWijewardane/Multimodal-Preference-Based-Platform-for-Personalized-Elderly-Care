@@ -15,7 +15,6 @@ router.get("/caregivers", requireAuth, async (req, res) => {
 
     console.log("✅ Caregivers fetched:", caregivers.length);
 
-    // ✅ FIX: normalize workingHours for frontend consistency
     caregivers = caregivers.map(cg => {
       const obj = cg.toObject();
 
@@ -52,7 +51,6 @@ router.get("/caregivers/:id", requireAuth, async (req, res) => {
 
     const obj = caregiver.toObject();
 
-    // ✅ FIX: normalize workingHours
     caregiver = {
       ...obj,
       workingHours:
